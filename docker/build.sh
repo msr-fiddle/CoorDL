@@ -221,7 +221,8 @@ if [ "$CREATE_RUNNER" == "YES" ]; then
         docker build -t ${BUILDER_TMP} -f ${DOCKER_FILE_TMP} .
         rm ${DOCKER_FILE_TMP}
     fi
-    docker build -t ${RUN_IMG} --build-arg "BUILD_IMAGE_NAME=${BUILDER_TMP}" --build-arg "CUDA_IMAGE_NAME=${CUDA_IMAGE_NAME}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" -f Docker_run_cuda .
+    export CUDA_IMAGE_NAME_PYTORCH="nvcr.io/nvidia/pytorch:19.05-py3"
+    docker build -t ${RUN_IMG} --build-arg "BUILD_IMAGE_NAME=${BUILDER_TMP}" --build-arg "CUDA_IMAGE_NAME=${CUDA_IMAGE_NAME_PYTORCH}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" -f Docker_run_cuda_pytorch .
     # remove scratch image
     if [ "$BUILD_INHOST" = "YES" ]; then
         docker rmi ${BUILDER_TMP}

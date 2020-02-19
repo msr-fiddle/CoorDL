@@ -18,3 +18,6 @@ compile_debug
 cmake-build-*
 ./data
 qnx/
+third_party*
+third_party/manylinux
+docker/Docker_run_cuda_jaya
