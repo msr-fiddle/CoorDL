@@ -1,5 +1,5 @@
 ARG BUILD_IMAGE_NAME
-ARG CUDA_IMAGE_NAME=nvcr.io/nvidia/pytorch:19.05-py3
+ARG CUDA_IMAGE_NAME=fiddlev3.azurecr.io/dali_py36_cu10_pytorch:latest
 FROM ${BUILD_IMAGE_NAME} AS builder
 FROM ${CUDA_IMAGE_NAME}
 
@@ -8,28 +8,8 @@ ENV PYVER=${PYVER}
 ARG PYV=36
 ENV PYV=${PYV}
 
-
-RUN apt-get update && apt-get install -y sysstat; apt-get install -y dstat
-
-RUN mkdir -p /home/app/ \
-    && mkdir -p /datadrive
-
-WORKDIR /home/app
-RUN chmod -R 777 /home/app
-RUN chmod -R 777 /datadrive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl \
-        git 
-
-
 ENV PYTHONIOENCODING utf-8
 ENV LC_ALL C.UTF-8
-
-
-RUN git clone https://github.com/jayashreemohan29/apex.git
-#RUN cd apex
-#RUN pip install --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 
 COPY --from=builder /wheelhouse/nvidia_dali-*${PYV}-* /opt/dali/
 #COPY --from=builder /wheelhouse/nvidia-dali-tf-plugin-*.tar.gz /opt/dali/

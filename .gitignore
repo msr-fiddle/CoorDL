@@ -21,3 +21,4 @@ qnx/
 third_party*
 third_party/manylinux
 docker/Docker_run_cuda_jaya
+Docker_run_cuda_pytorch

@@ -57,6 +57,14 @@ Table of Contents
 Installing or building DALI
 ---------------------------
 
+- `cd $DALI_ROOT/docker`_
+- `CREATE_RUNNER="YES" ./build.sh`_
+- `nvidia-docker run --ipc=host --mount src=/,target=/datadrive/,type=bind -it --rm --network=host --cpus=24 -m 200g --privileged nvidia/dali:py36_cu10.run`_ 
+
+This will build the source, and place the compiled wheel in the docker container nvidia/dali:py36_cu10_x86_64.build
+Next, it will create a docker container from the base fiddlev3.azurecr.io/dali_py36_cu10_pytorch:latest (This has pytorch 1.0, CUDA 10, python 3.6, cuDNN and the base dali), and install the compiled dali wheel in this container. 
+
+
 DALI is preinstalled in the `NVIDIA GPU Cloud <https://ngc.nvidia.com>`_ TensorFlow, PyTorch,
 and MXNet containers in versions 18.07 and later.
 
