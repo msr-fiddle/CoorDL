@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 #include <deque>
+#include <fstream>
+#include <cstring>
 
 #include "dali/core/common.h"
 #include "dali/core/error_handling.h"
@@ -59,6 +61,7 @@ class Loader {
                           * options.GetArgument<int>("batch_size")),
       tensor_init_bytes_(options.GetArgument<int>("tensor_init_bytes")),
       seed_(options.GetArgument<Index>("seed")),
+      cache_size_(options.GetArgument<int>("cache_size")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
       copy_read_data_(false),
@@ -75,12 +78,15 @@ class Loader {
     DALI_ENFORCE(num_shards_ > shard_id_, "num_shards needs to be greater than shard_id");
     // initialize a random distribution -- this will be
     // used to pick from our sample buffer
+    string ofname = to_string(shard_id_) + ".log";
+    outfile.open(ofname);
     std::seed_seq seq({seed_});
     e_ = std::default_random_engine(seq);
     virtual_shard_id_ = shard_id_;
   }
 
   virtual ~Loader() {
+    outfile.close();
     sample_buffer_.clear();
     empty_tensors_.clear();
   }
@@ -122,6 +128,7 @@ class Loader {
     TimeRange tr("[Loader] ReadOne", TimeRange::kGreen1);
     // perform an initial buffer fill if it hasn't already happened
     if (!initial_buffer_filled_) {
+      //outfile << __FILE__ << " : Initial buffer unfilled " << initial_buffer_fill_ << std::endl;
       TimeRange tr("[Loader] Filling initial buffer", TimeRange::kBlue1);
       shards_.push_back({0, 0});
 
@@ -169,16 +176,20 @@ class Loader {
 
     // choose the random index
     std::uniform_int_distribution<> dis;
+    //outfile << "Distribution from " << shards_.front().end << " to " << shards_.front().start - 1 << std::endl;
     dis = std::uniform_int_distribution<>(0, shards_.front().end - shards_.front().start - 1);
 
     int offset = shuffle_ ? dis(e_) : 0;
     Index idx = (shards_.front().start + offset) % sample_buffer_.size();
+    //outfile << __FILE__ << " : IDX from buffer : " << idx << std::endl;
     LoadTargetSharedPtr sample_ptr(sample_buffer_[idx].release(),
       [this](LoadTarget* sample) {
         LoadTargetUniquePtr recycle_ptr(sample);
         RecycleTensor(std::move(recycle_ptr));
     });
     std::swap(sample_buffer_[idx], sample_buffer_[shards_.front().start % sample_buffer_.size()]);
+    //outfile << __FILE__ << " : Swapped to " << shards_.front().start % sample_buffer_.size() << std::endl;
+    
     // now grab an empty tensor, fill it and add to filled buffers
     // empty_tensors_ needs to be thread-safe w.r.t. RecycleTensor()
     // being called by multiple consumer threads
@@ -189,9 +200,11 @@ class Loader {
       tensor_ptr = std::move(empty_tensors_.back());
       empty_tensors_.pop_back();
     }
+    //outfile << __FILE__ << " : Read Sample again" << std::endl;
     ReadSample(*tensor_ptr);
     IncreaseReadSampleCounter();
     std::swap(sample_buffer_[shards_.back().end % sample_buffer_.size()], tensor_ptr);
+    //outfile << __FILE__ << " : Swapped new one with " << shards_.back().end % sample_buffer_.size() << std::endl;
     ++shards_.back().end;
     last_sample_ptr_tmp = sample_ptr;
 
@@ -216,6 +229,7 @@ class Loader {
     std::lock_guard<std::mutex> l(prepare_metadata_mutex_);
     if (!loading_flag_) {
       loading_flag_ = true;
+      outfile << "Preparing metadata .." << std::endl;
       PrepareMetadataImpl();
     }
   }
@@ -310,12 +324,19 @@ class Loader {
   const int tensor_init_bytes_;
   bool initial_buffer_filled_ = false;
 
+  //output file
+  std::ofstream outfile;
+  string outfile_name;
+
   // rng
   std::default_random_engine e_;
   Index seed_;
 
   // control return of tensors
   std::mutex empty_tensors_mutex_;
+
+  // caching
+  const int cache_size_;
 
   // sharding
   const int shard_id_;

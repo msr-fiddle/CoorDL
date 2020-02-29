@@ -81,6 +81,7 @@ class DataReader : public Operator<Backend> {
   virtual void Prefetch() {
     // We actually prepare the next batch
     TimeRange tr("DataReader::Prefetch #" + to_string(curr_batch_producer_), TimeRange::kRed);
+    //std::cout << __FILE__ << " : PREFETCH # " << to_string(curr_batch_producer_) << std::endl;
     auto &curr_batch = prefetched_batch_queue_[curr_batch_producer_];
     curr_batch.reserve(Operator<Backend>::batch_size_);
     curr_batch.clear();

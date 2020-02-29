@@ -23,7 +23,9 @@ void HostWorkspace::GetSample(SampleWorkspace* ws, int data_idx, int thread_idx)
   ws->Clear();
   ws->set_data_idx(data_idx);
   ws->set_thread_idx(thread_idx);
+  //std::cout << __FILE__ << "Index at workspace " << std::endl;
   for (const auto& input_meta : input_index_map_) {
+    //std::cout << __FILE__ << input_meta.index << std::endl;
     if (input_meta.storage_device == StorageDevice::CPU) {
       ws->AddInput(cpu_inputs_[input_meta.index]->tensor_handle(data_idx));
     } else {

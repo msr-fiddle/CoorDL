@@ -29,6 +29,7 @@ ThreadPool::ThreadPool(int num_thread, int device_id, bool set_affinity)
 #if NVML_ENABLED
   nvml::Init();
 #endif
+  std::cout << "Thread pool has " << num_thread << " for dev "<< device_id << std::endl;
   // Start the threads in the main loop
   for (int i = 0; i < num_thread; ++i) {
     threads_[i] = std::thread(std::bind(&ThreadPool::ThreadMain, this, i, device_id, set_affinity));

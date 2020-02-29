@@ -20,7 +20,8 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-
+#include <fstream>
+#include <string>
 #include "dali/pipeline/executor/async_pipelined_executor.h"
 #include "dali/pipeline/executor/async_separated_pipelined_executor.h"
 #include "dali/pipeline/executor/executor_factory.h"
@@ -66,6 +67,14 @@ namespace dali {
                      size_t bytes_per_sample_hint, bool set_affinity, int max_num_stream,
                      int default_cuda_stream_priority)
       : built_(false), separated_execution_(false) {
+
+
+    // set stdout to a file
+    /*string fname = "out-" + to_string(device_id) + ".log";
+    std::cout << "Resetting output to " << fname  << std::endl;
+    std::ofstream out(fname);
+    std::streambuf *coutbuf = std::cout.rdbuf();
+    std::cout.rdbuf(out.rdbuf());*/
     dali_proto::PipelineDef def;
     //  Reading Protobuf file has a limitation of 64 MB
     //  Following instructions will increase the
@@ -142,6 +151,14 @@ void Pipeline::Init(int batch_size, int num_threads, int device_id, int64_t seed
     this->default_cuda_stream_priority_ = default_cuda_stream_priority;
     this->prefetch_queue_depth_ = prefetch_queue_depth;
     DALI_ENFORCE(batch_size_ > 0, "Batch size must be greater than 0");
+
+    /*string fname = "out-" + to_string(device_id) + ".log";
+    std::cout << "Resetting output to " << fname  << std::endl;
+    std::ofstream out(fname);
+    std::streambuf *coutbuf = std::cout.rdbuf();
+    std::cout.rdbuf(out.rdbuf());
+    std::cout << "HELLO " << this->device_id_ << std::endl; */
+    dali_proto::PipelineDef def;
 
     int lowest_cuda_stream_priority, highest_cuda_stream_priority;
     CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowest_cuda_stream_priority,

@@ -28,6 +28,8 @@ this parameter is ignored.)code", 1024)
       R"code(Partition the data into this many parts (used for multiGPU training).)code", 1)
   .AddOptionalArg("shard_id",
       R"code(Id of the part to read.)code", 0)
+  .AddOptionalArg("cache_size",
+      R"code(Number of items to cache for this loader.)code", 0)
   .AddOptionalArg("tensor_init_bytes",
       R"code(Hint for how much memory to allocate per image.)code", 1048576)
   .AddOptionalArg("stick_to_shard",

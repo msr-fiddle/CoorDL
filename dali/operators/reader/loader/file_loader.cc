@@ -15,17 +15,25 @@
 #include <dirent.h>
 #include <errno.h>
 #include <memory>
-
+#include <chrono>
 #include "dali/core/common.h"
 #include "dali/operators/reader/loader/file_loader.h"
 #include "dali/util/file.h"
 #include "dali/operators/reader/loader/utils.h"
+#include "dali/operators/shmcache/posixshmem.h"
 
 namespace dali {
 
 
+//template<int I, int J, class... T>
+template<class... T>
+inline auto to_pair(std::tuple<T...> t)
+    -> decltype(std::make_pair(std::get<0>(t), std::get<1>(t))) {
+  return std::make_pair(std::get<0>(t), std::get<1>(t));
+}
+
 inline void assemble_file_list(const std::string& path, const std::string& curr_entry, int label,
-                        std::vector<std::pair<std::string, int>> *file_label_pairs) {
+                        std::vector<std::tuple<std::string, int>> *file_label_pairs) {
   std::string curr_dir_path = path + "/" + curr_entry;
   DIR *dir = opendir(curr_dir_path.c_str());
 
@@ -45,13 +53,20 @@ inline void assemble_file_list(const std::string& path, const std::string& curr_
 #endif
     std::string rel_path = curr_entry + "/" + std::string{entry->d_name};
     if (HasKnownExtension(std::string(entry->d_name))) {
-      file_label_pairs->push_back(std::make_pair(rel_path, label));
+      //file_label_pairs->push_back(std::make_tuple(full_path, label));
+      file_label_pairs->push_back(std::make_tuple(rel_path, label));
     }
   }
   closedir(dir);
 }
 
-vector<std::pair<string, int>> filesystem::traverse_directories(const std::string& file_root) {
+inline bool is_cached(std::string name){
+   struct stat   buffer;
+   const char* name_c = ("/dev/shm/cache/" + name).c_str();
+   return (stat (name_c, &buffer) == 0);
+}
+
+vector<std::tuple<std::string, int>> filesystem::traverse_directories(const std::string& file_root) {
   // open the root
   DIR *dir = opendir(file_root.c_str());
 
@@ -60,7 +75,7 @@ vector<std::pair<string, int>> filesystem::traverse_directories(const std::strin
 
   struct dirent *entry;
 
-  std::vector<std::pair<std::string, int>> file_label_pairs;
+  std::vector<std::tuple<std::string, int>> file_label_pairs;
   std::vector<std::string> entry_name_list;
 
   while ((entry = readdir(dir))) {
@@ -87,6 +102,8 @@ vector<std::pair<string, int>> filesystem::traverse_directories(const std::strin
   printf("read %lu files from %lu directories\n", file_label_pairs.size(), entry_name_list.size());
 
   closedir(dir);
+  //for (int i = 0; i < static_cast<int>(file_label_pairs.size()); i++)
+  //  std::cout << file_label_pairs[i].first << ", " << file_label_pairs[i].second << std::endl;
 
   return file_label_pairs;
 }
@@ -96,11 +113,14 @@ void FileLoader::PrepareEmpty(ImageLabelWrapper &image_label) {
 }
 
 void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
-  auto image_pair = image_label_pairs_[current_index_++];
+  std::tuple<std::string, int> image_tuple = image_label_pairs_[current_index_++];
+  auto image_pair = std::make_pair(std::get<0>(image_tuple), std::get<1>(image_tuple));
+  int cur_idx = current_index_ - 1;
+  //outfile << "Reading Current index = " << cur_idx << ", img = " << image_pair.first << std::endl;
 
   // handle wrap-around
   MoveToNextShard(current_index_);
-
+  auto start = std::chrono::high_resolution_clock::now();
   // copy the label
   image_label.label = image_pair.second;
   DALIMeta meta;
@@ -116,11 +136,57 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
     image_label.image.Resize({0});
     return;
   }
+  
+  /*TODO: All we need to do is update the path
+   of the file to point to the shm area instead of disk
+   If cache size is not full, then add this entry to cache,
+   else do nothing
+  */
+  //outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
+  bool must_cache = std::binary_search (shm_cache_index_list_.begin(), shm_cache_index_list_.end(), cur_idx);
+  //outfile << "Searching for " << cur_idx << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
+  if (!caching_done_ && must_cache) {
+    shm::CacheEntry *ce = new shm::CacheEntry(image_pair.first);
+    int ret = -1;
+    ret = ce->create_segment();
+    DALI_ENFORCE(ret != -1,
+      "Cache for " + image_pair.first + " could not be created.");
 
-  auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
+    //ret = ce->put_cache(image_pair.first);
+    ret = ce->put_cache(file_root_ + "/" + image_pair.first);
+    DALI_ENFORCE(ret != -1,
+      "Cache for " + image_pair.first + " could not be populated.");
+    shm_cached_items_.push_back(image_pair.first);
+
+    //outfile << "Cache written : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
+
+    ret = ce->close_segment();
+    DALI_ENFORCE(ret != -1,
+      "Cache for " + image_pair.first + " could not be closed.");
+
+    //Update the file path to get a cache hit for its next access.
+    //std::get<0>(image_label_pairs_[cur_idx]) = ce->get_shm_path();
+    //outfile << "cached " << ce->get_shm_path() << endl;
+    delete ce;
+  }
+
+  // check if cached
+  // Change this to be parameter. Hardcoded for now
+  std::string prefix;
+  if (is_cached(image_pair.first)){
+    prefix = "/dev/shm/cache";
+    //outfile << "Got cached value for " << image_pair.first << endl;
+  }
+  else
+    prefix = file_root_;
+
+  //auto current_image = FileStream::Open(image_pair.first, read_ahead_);
+  //auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
+  auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
   Index image_size = current_image->Size();
 
   if (copy_read_data_) {
+    //std::cout << "Copying " << image_pair.first << std::endl;
     if (image_label.image.shares_data()) {
       image_label.image.Reset();
     }
@@ -128,6 +194,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
     // copy the image
     current_image->Read(image_label.image.mutable_data<uint8_t>(), image_size);
   } else {
+    //std::cout << "Sharing " << image_pair.first << std::endl;
     auto p = current_image->Get(image_size);
     // Wrap the raw data in the Tensor object.
     image_label.image.ShareData(p, image_size, {image_size});
@@ -136,6 +203,8 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 
   // close the file handle
   current_image->Close();
+  auto finish = std::chrono::high_resolution_clock::now();
+  //std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count() << "ns\n";
 
   // copy the label
   image_label.label = image_pair.second;

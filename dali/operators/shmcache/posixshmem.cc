@@ -26,6 +26,8 @@ using namespace std;
 
 namespace shm {
 
+const string prefix = "/dev/shm/cache/";  
+
 string create_name(string path) {
 	std::replace( path.begin(), path.end(), '/', '_');	
 	return path;
@@ -53,6 +55,60 @@ int open_shared_file(const char* path, int flags, mode_t mode) {
 	return fd;
 }
 
+
+void create_directories(string prefix, string name) {
+	
+
+}
+
+
+int try_mkdir(const char* path, int mode){
+	typedef struct stat stat_dir;
+	stat_dir st;
+	int status = 0;
+	if (stat(path, &st) != 0) {
+		if (mkdir(path, mode) != 0 && errno != EEXIST)
+			status = -1;
+	} else if (!S_ISDIR(st.st_mode)) {
+		errno = ENOTDIR;
+		status = -1;
+	}
+
+	return status;
+}
+
+/**
+** ensures all directories in path exist
+** We start working top-down to ensure
+** each directory in path exists.
+*/
+int mkdir_path(const char *path, mode_t mode)
+{
+	char *pp;
+	char *sp;
+	int status;
+	char *copypath = strdup(path);
+
+	status = 0;
+	pp = copypath;
+	// Find all occurences of '/' in path : if /a/c/tmp.jpg
+	// we need to mkdir(/a) and mkdir (/a/c)
+	while (status == 0 && (sp = strchr(pp, '/')) != 0) {
+		if (sp != pp) {
+			/* Neither root nor double slash in path */
+			*sp = '\0';
+			status = try_mkdir(copypath, mode);
+			*sp = '/';
+		}
+		pp = sp + 1;
+	}
+	if (status == 0)
+		status = try_mkdir(path, mode);
+	free(copypath);
+	return (status);
+}
+
+
 int get_file_size(string filename){
 	struct stat st;
 	stat(filename.c_str(), &st);
@@ -67,19 +123,27 @@ CacheEntry::CacheEntry(string path){
 	 * then the name of the segment is 
 	 * path - prefix 
 	 */
-	path_ = path; 
-	int found = path.find(prefix); 
+	name_ = path; 
+	int found = name_.find(prefix); 
 	if(found != string::npos){ 
 		// Prefix is found in path
-		path_.erase(found, prefix.length()); 
+		name_.erase(found, prefix.length()); 
 	}
-	name_ = path_;
-	std::replace( name_.begin(), name_.end(), '/', '_');
+	//name_ = path_;
+	//std::replace( name_.begin(), name_.end(), '/', '_');
 }
 
 int CacheEntry::create_segment() {
 	// Get the unique name for the shm segment
 	//name_ =  create_name(path_);
+
+	//Create directories in the file path if they dont exist
+	// Pass only the dir heirarchy to the function. 
+	// Strip off the file name
+	string dir_path(name_);
+	dir_path = dir_path.substr(0, dir_path.rfind("/"));
+	mkdir_path((shm_path(dir_path, prefix)).c_str(), 0777);
+	
 	int flags = O_CREAT | O_RDWR;
 	int mode = 511;
 	//Get the full shm path and open it
@@ -111,7 +175,7 @@ int CacheEntry::attach_segment(){
 int CacheEntry::put_cache(string from_file) {
 	int bytes_to_write = get_file_size(from_file);
 	size_ = bytes_to_write;
-	cout << "will write from file " << from_file << " size " << bytes_to_write << endl;
+	//cout << "will write from file " << from_file << " size " << bytes_to_write << endl;
 	if (fd_ < 0){
 		errno = EINVAL;
 		cerr << "File " << name_ << " has invalid decriptor" << endl;
@@ -148,7 +212,7 @@ int CacheEntry::put_cache(string from_file) {
 	//Do the memcpy now
 	// memcpy(void* dest, const void* src, size)
 	memcpy(ptr, p_.get(), bytes_to_write);
-	cout << "memcpy done" << endl;
+	//cout << "memcpy done" << endl;
 	int ret = 0;
 
 	// Now unmap both files
@@ -172,7 +236,7 @@ void* CacheEntry::get_cache() {
 	string from_file = prefix + name_;
 	int bytes_to_read = get_file_size(from_file);
 	size_ = bytes_to_read;
-	cout << "will read from file " << from_file << " size " << bytes_to_read << endl;
+	//cout << "will read from file " << from_file << " size " << bytes_to_read << endl;
 
 	// If the descriptor is invalid, you need to sttach the segment.
 	if (fd_ < 0){

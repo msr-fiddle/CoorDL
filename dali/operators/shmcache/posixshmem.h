@@ -16,8 +16,9 @@
 #include <stdlib.h>
 
 
-
 namespace shm{
+
+extern const std::string prefix;  
 
 class CacheEntry {
     public:
@@ -101,13 +102,13 @@ class CacheEntry {
 	 * whose content will be stored in the
 	 * shared segment
 	 */
-	std::string path_;
+	//std::string path_;
 
     private:
 	int fd_ = -1;
-	void *buf_;       
+	//void *buf_;       
 	int size_ = 0;
-	std::string prefix = "/dev/shm/cache/";
+	//std::string prefix = "/dev/shm/cache/";
 };
 
 } // end namespace shm

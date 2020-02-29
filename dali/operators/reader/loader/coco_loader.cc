@@ -74,7 +74,8 @@ void dump_filenames(const ImageIdPairs &image_id_pairs, const std::string path) 
   std::ofstream file(path);
   DALI_ENFORCE(file, "CocoReader meta file error while saving: " + path);
   for (const auto &p : image_id_pairs) {
-    file << p.first << std::endl;
+    file << std::get<0>(p) << std::endl;
+    //file << p.first << std::endl;
   }
 }
 

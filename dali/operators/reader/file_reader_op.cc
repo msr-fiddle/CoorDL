@@ -38,6 +38,10 @@ directories with images in them. To obtain labels `FileReader` sorts directories
       R"code(If true, reader shuffles whole dataset after each epoch. It is exclusive with
 `stick_to_shard` and `random_shuffle`.)code",
       false)
+.AddOptionalArg("cache_size",
+      R"code(If a value is set, it is the number of items in shared memory cache
+per loader.)code",
+      int(0))
   .AddParent("LoaderBase");
 
 }  // namespace dali

@@ -20,6 +20,7 @@
 #include <vector>
 #include "dali/operators/reader/reader_op.h"
 #include "dali/operators/reader/loader/file_loader.h"
+#include <iostream>
 
 namespace dali {
 
@@ -28,13 +29,13 @@ class FileReader : public DataReader<CPUBackend, ImageLabelWrapper> {
   explicit FileReader(const OpSpec& spec)
     : DataReader<CPUBackend, ImageLabelWrapper>(spec) {
     bool shuffle_after_epoch = spec.GetArgument<bool>("shuffle_after_epoch");
-    loader_ = InitLoader<FileLoader>(spec, std::vector<std::pair<string, int>>(),
+    loader_ = InitLoader<FileLoader>(spec, std::vector<std::tuple<string, int>>(),
                                      shuffle_after_epoch);
   }
 
   void RunImpl(SampleWorkspace &ws) override {
     const int idx = ws.data_idx();
-
+    //std::cout << __FILE__ << " : GETTING SAMPLE IDX : " << idx << std::endl;
     const auto& image_label = GetSample(idx);
 
     // copy from raw_data -> outputs directly
@@ -51,8 +52,11 @@ class FileReader : public DataReader<CPUBackend, ImageLabelWrapper> {
                 image_label.image.raw_data(),
                 image_size);
     image_output.SetSourceInfo(image_label.image.GetSourceInfo());
+    //std::cout << __FILE__ << ": " << image_label.image.GetSourceInfo() << std::endl;
 
     label_output.mutable_data<int>()[0] = image_label.label;
+    //std::cout << __FILE__ << " : DONE GETTING SAMPLE IDX : " << idx << std::endl;
+
   }
 
  protected:

@@ -94,7 +94,7 @@ static void *file_map(const char *path, size_t *length, bool read_ahead) {
   }
 
   *length = (size_t)s.st_size;
-
+  //std::cout << "MMap " << path << std::endl;
   if ((p = mmap(nullptr, *length, PROT_READ, flags, fd, 0)) == MAP_FAILED) {
     p = nullptr;
     goto fail;

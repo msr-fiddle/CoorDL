@@ -68,24 +68,27 @@ int main (int argc, char* argv[]) {
 	//for (int i=0; i < file_paths.size(); i++)
 	//	cout << i << " : " << file_paths[i] << endl;
 
-	shm::CacheEntry *item = new shm::CacheEntry(file_paths[0]);
-	int fd = item->create_segment();
-	if (fd == -1){
-		cout << strerror(errno) << endl;
-		exit(errno);
-	}
+	for (int i=0; i < 1; i++){
+//for (int i=0; i < file_paths.size(); i++){
+		shm::CacheEntry *item = new shm::CacheEntry(file_paths[i]);
+		int fd = item->create_segment();
+		if (fd == -1){
+			cout << strerror(errno) << endl;
+			exit(errno);
+		}
 
-	int fd1 = item->attach_segment();
-	if (fd1 == -1){
-		cout << strerror(errno) << endl;
-		exit(errno);
-	}
-	cout << "fd1: " << fd << ", fd2: " << fd1 << endl;
+		/*int fd1 = item->attach_segment();
+		if (fd1 == -1){
+			cout << strerror(errno) << endl;
+			exit(errno);
+		}
+		cout << "fd1: " << fd << ", fd2: " << fd1 << endl;*/
 		
-	int written = item->put_cache(file_paths[0]);
-	if (written < 0){
-		cout << strerror(errno) << endl;
-		exit(errno);
+		int written = item->put_cache(file_paths[i]);
+		if (written < 0){
+			cout << strerror(errno) << endl;
+			exit(errno);
+		}
 	}
 
 	return 0;

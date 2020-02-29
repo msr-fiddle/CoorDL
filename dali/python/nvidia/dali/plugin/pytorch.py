@@ -135,6 +135,7 @@ class DALIGenericIterator(object):
         self._dynamic_shape = dynamic_shape
         self._fill_last_batch = fill_last_batch
         self._last_batch_padded = last_batch_padded
+        #print("PIPELINE - Num gpu={}, size={}, batch={}".format(self._num_gpus, self._size, self.batch_size))
         assert self._size != 0, "Size cannot be 0"
         assert self._size > 0 or (self._size < 0 and len(pipelines) == 1), "Negative size is supported only for a single pipeline"
         if self._size < 0:
@@ -229,6 +230,7 @@ class DALIGenericIterator(object):
                 p.schedule_run()
 
         self._counter += self._num_gpus * self.batch_size
+        #print("Counter after increment:{}".format(self._counter))
 
         if (not self._fill_last_batch) and (self._counter > self._size) and self._size > 0:
             # First calculate how much data is required to return exactly self._size entries.
