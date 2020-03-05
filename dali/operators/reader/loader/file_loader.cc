@@ -160,9 +160,9 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 
     //outfile << "Cache written : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
 
-    ret = ce->close_segment();
-    DALI_ENFORCE(ret != -1,
-      "Cache for " + image_pair.first + " could not be closed.");
+    //ret = ce->close_segment();
+    //DALI_ENFORCE(ret != -1,
+    //  "Cache for " + image_pair.first + " could not be closed.");
 
     //Update the file path to get a cache hit for its next access.
     //std::get<0>(image_label_pairs_[cur_idx]) = ce->get_shm_path();

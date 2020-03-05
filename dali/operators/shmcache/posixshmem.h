@@ -105,8 +105,10 @@ class CacheEntry {
 	//std::string path_;
 
     private:
+        //fd of the open file - tmp if create-segment
+        // final if attach-segment
 	int fd_ = -1;
-	//void *buf_;       
+
 	int size_ = 0;
 	//std::string prefix = "/dev/shm/cache/";
 };

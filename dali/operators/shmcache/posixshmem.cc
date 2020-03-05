@@ -1,5 +1,5 @@
 // A utility file to create, attach, read and write to shared memory segments
-
+// Change all operation shere to work on a tmp file and then rename it atomically
 
 #include <errno.h>
 #include <memory>
@@ -147,16 +147,20 @@ int CacheEntry::create_segment() {
 	int flags = O_CREAT | O_RDWR;
 	int mode = 511;
 	//Get the full shm path and open it
-	string shm_path_name = shm_path(name_, prefix);
-	fd_ = open_shared_file(shm_path_name.c_str(), flags, mode);
+	string shm_path_name_tmp = shm_path(name_ + "-tmp", prefix);
+  cout << "Shm path " << shm_path_name_tmp << endl;
+	fd_ = open_shared_file(shm_path_name_tmp.c_str(), flags, mode);
 	return fd_;
 }
 
 int CacheEntry::attach_segment(){
 	// if the shm segment is already open,
 	// return the descriptor
-	if (fd_ != -1)
-		return fd_;
+  // We could be attaching to a segment when its
+  // being written to. So always try 
+  // opening from the name
+	//if (fd_ != -1)
+  //		return fd_;
 
 	// Else, open the file without the O_CREAT
 	// flags and return the fd
@@ -227,6 +231,16 @@ int CacheEntry::put_cache(string from_file) {
 	}
 
 	close(fd_from);
+  //close the tmp file
+  close(fd_);
+
+  string shm_path_name = shm_path(name_, prefix);
+  string shm_path_name_tmp = shm_path(name_+"-tmp", prefix);
+  //rename the file
+  if ((ret = rename(shm_path_name_tmp.c_str(), shm_path_name.c_str())) < 0){
+    cerr << "Caching rename failed" << endl;
+    return -1;
+  }
 
 	return bytes_to_write;
 }
