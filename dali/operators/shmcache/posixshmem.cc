@@ -148,7 +148,7 @@ int CacheEntry::create_segment() {
 	int mode = 511;
 	//Get the full shm path and open it
 	string shm_path_name_tmp = shm_path(name_ + "-tmp", prefix);
-  cout << "Shm path " << shm_path_name_tmp << endl;
+  //cout << "Shm path " << shm_path_name_tmp << endl;
 	fd_ = open_shared_file(shm_path_name_tmp.c_str(), flags, mode);
 	return fd_;
 }
