@@ -37,10 +37,11 @@ const char* nvjpeg_parse_error_code(nvjpegStatus_t code);
       dali::string error = dali::string("NVJPEG error \"") + \
         std::to_string(static_cast<int>(status)) + "\""  +   \
         " : " + nvjpeg_parse_error_code(status);             \
-      DALI_FAIL(error);                                      \
+      std::cout << "ERROR : " << error << std::endl;         \
     }                                                        \
   } while (0)
 
+//DALI_FAIL(error);                                      
 #define NVJPEG_CALL_EX(code, extra)                          \
   do {                                                       \
     nvjpegStatus_t status = code;                            \
@@ -50,9 +51,10 @@ const char* nvjpeg_parse_error_code(nvjpegStatus_t code);
         std::to_string(static_cast<int>(status)) + "\""      \
         + " : " + nvjpeg_parse_error_code(status) + " "      \
         + extra_info;                                        \
-      DALI_FAIL(error);                                      \
+      std::cout << "ERROR : " << error << std::endl;         \
     }                                                        \
   } while (0)
+//DALI_FAIL(error);                                      
 
 struct StateNvJPEG {
   nvjpegBackend_t nvjpeg_backend;
