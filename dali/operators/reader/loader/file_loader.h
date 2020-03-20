@@ -173,7 +173,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     current_epoch_++;
 
     if (shuffle_after_epoch_) {
-      std::mt19937 g(kDaliDataloaderSeed + current_epoch_);
+      std::mt19937 g(kDaliDataloaderSeed + shuffle_seed_ + current_epoch_);
       std::shuffle(image_label_pairs_.begin(), image_label_pairs_.end(), g);
     }
   }
