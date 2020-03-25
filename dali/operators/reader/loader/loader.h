@@ -79,7 +79,7 @@ class Loader {
     DALI_ENFORCE(num_shards_ > shard_id_, "num_shards needs to be greater than shard_id");
     // initialize a random distribution -- this will be
     // used to pick from our sample buffer
-    string ofname = to_string(shard_id_) + ".log";
+    string ofname = to_string(shard_id_) + "-" + to_string(cache_size_) + ".log";
     outfile.open(ofname);
     std::seed_seq seq({seed_});
     e_ = std::default_random_engine(seq);

@@ -34,7 +34,7 @@ namespace dali {
 
 namespace filesystem {
 
-vector<std::tuple<string, int>> traverse_directories(const std::string& path);
+vector<std::pair<string, int>> traverse_directories(const std::string& path);
 
 }  // namespace filesystem
 
@@ -47,7 +47,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
  public:
   explicit inline FileLoader(
     const OpSpec& spec,
-    vector<std::tuple<string, int>> image_label_pairs = std::vector<std::tuple<string, int>>(),
+    vector<std::pair<string, int>> image_label_pairs = std::vector<std::pair<string, int>>(),
     bool shuffle_after_epoch = false)
     : Loader<CPUBackend, ImageLabelWrapper>(spec),
       file_root_(spec.GetArgument<string>("file_root")),
@@ -107,7 +107,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
         string image_file;
         int label;
         while (s >> image_file >> label) {
-          auto p = std::make_tuple(image_file, label);
+          auto p = std::make_pair(image_file, label);
           image_label_pairs_.push_back(p);
         }
         DALI_ENFORCE(s.eof(), "Wrong format of file_list: " + file_list_);
@@ -188,7 +188,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   string file_root_, file_list_;
 
   //A map of file paths, label and a bool that indicates whether cached
-  vector<std::tuple<string, int>> image_label_pairs_;
+  vector<std::pair<string, int>> image_label_pairs_;
   bool shuffle_after_epoch_;
   Index current_index_;
   int current_epoch_;

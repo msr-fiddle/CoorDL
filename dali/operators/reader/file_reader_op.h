@@ -29,7 +29,7 @@ class FileReader : public DataReader<CPUBackend, ImageLabelWrapper> {
   explicit FileReader(const OpSpec& spec)
     : DataReader<CPUBackend, ImageLabelWrapper>(spec) {
     bool shuffle_after_epoch = spec.GetArgument<bool>("shuffle_after_epoch");
-    loader_ = InitLoader<FileLoader>(spec, std::vector<std::tuple<string, int>>(),
+    loader_ = InitLoader<FileLoader>(spec, std::vector<std::pair<string, int>>(),
                                      shuffle_after_epoch);
   }
 

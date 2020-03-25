@@ -158,7 +158,7 @@ void Pipeline::Init(int batch_size, int num_threads, int device_id, int64_t seed
     std::streambuf *coutbuf = std::cout.rdbuf();
     std::cout.rdbuf(out.rdbuf());
     std::cout << "HELLO " << this->device_id_ << std::endl; */
-    dali_proto::PipelineDef def;
+    //dali_proto::PipelineDef def;
 
     int lowest_cuda_stream_priority, highest_cuda_stream_priority;
     CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowest_cuda_stream_priority,

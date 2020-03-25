@@ -65,6 +65,7 @@ class CacheEntry {
 	 * unmaps on exit.
 	 */
 	int put_cache(std::string from_file);
+	int put_cache_simple(std::string from_file);
 
 	/* This function returns the shared memory path
 	 * to this segment. This path can be 

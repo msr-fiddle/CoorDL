@@ -33,7 +33,7 @@ inline auto to_pair(std::tuple<T...> t)
 }
 
 inline void assemble_file_list(const std::string& path, const std::string& curr_entry, int label,
-                        std::vector<std::tuple<std::string, int>> *file_label_pairs) {
+                        std::vector<std::pair<std::string, int>> *file_label_pairs) {
   std::string curr_dir_path = path + "/" + curr_entry;
   DIR *dir = opendir(curr_dir_path.c_str());
 
@@ -54,7 +54,7 @@ inline void assemble_file_list(const std::string& path, const std::string& curr_
     std::string rel_path = curr_entry + "/" + std::string{entry->d_name};
     if (HasKnownExtension(std::string(entry->d_name))) {
       //file_label_pairs->push_back(std::make_tuple(full_path, label));
-      file_label_pairs->push_back(std::make_tuple(rel_path, label));
+      file_label_pairs->push_back(std::make_pair(rel_path, label));
     }
   }
   closedir(dir);
@@ -66,7 +66,7 @@ inline bool is_cached(std::string name){
    return (stat (name_c, &buffer) == 0);
 }
 
-vector<std::tuple<std::string, int>> filesystem::traverse_directories(const std::string& file_root) {
+vector<std::pair<std::string, int>> filesystem::traverse_directories(const std::string& file_root) {
   // open the root
   DIR *dir = opendir(file_root.c_str());
 
@@ -75,7 +75,7 @@ vector<std::tuple<std::string, int>> filesystem::traverse_directories(const std:
 
   struct dirent *entry;
 
-  std::vector<std::tuple<std::string, int>> file_label_pairs;
+  std::vector<std::pair<std::string, int>> file_label_pairs;
   std::vector<std::string> entry_name_list;
 
   while ((entry = readdir(dir))) {
@@ -113,8 +113,9 @@ void FileLoader::PrepareEmpty(ImageLabelWrapper &image_label) {
 }
 
 void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
-  std::tuple<std::string, int> image_tuple = image_label_pairs_[current_index_++];
-  auto image_pair = std::make_pair(std::get<0>(image_tuple), std::get<1>(image_tuple));
+  //std::tuple<std::string, int> image_tuple = image_label_pairs_[current_index_++];
+  auto image_pair = image_label_pairs_[current_index_++];
+  //auto image_pair = std::make_pair(std::get<0>(image_tuple), std::get<1>(image_tuple));
   int cur_idx = current_index_ - 1;
   //outfile << "Reading Current index = " << cur_idx << ", img = " << image_pair.first << std::endl;
 
@@ -142,38 +143,41 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
    If cache size is not full, then add this entry to cache,
    else do nothing
   */
-  //outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
-  bool must_cache = std::binary_search (shm_cache_index_list_.begin(), shm_cache_index_list_.end(), cur_idx);
-  //outfile << "Searching for " << cur_idx << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
-  if (!caching_done_ && must_cache) {
-    shm::CacheEntry *ce = new shm::CacheEntry(image_pair.first);
-    int ret = -1;
-    ret = ce->create_segment();
-    DALI_ENFORCE(ret != -1,
-      "Cache for " + image_pair.first + " could not be created.");
+  outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
+  if (cache_size_ > 0){
+      bool must_cache = std::binary_search (shm_cache_index_list_.begin(), shm_cache_index_list_.end(), cur_idx);
+      outfile << "Searching for " << image_pair.first << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
+      if (!caching_done_ && must_cache) {
+        outfile << "Must write " << image_pair.first << endl;
+        shm::CacheEntry *ce = new shm::CacheEntry(image_pair.first);
+        int ret = -1;
+        ret = ce->create_segment();
+        DALI_ENFORCE(ret != -1,
+          "Cache for " + image_pair.first + " could not be created.");
 
-    //ret = ce->put_cache(image_pair.first);
-    ret = ce->put_cache(file_root_ + "/" + image_pair.first);
-    DALI_ENFORCE(ret != -1,
-      "Cache for " + image_pair.first + " could not be populated.");
-    shm_cached_items_.push_back(image_pair.first);
+        ret = ce->put_cache_simple(file_root_ + "/" + image_pair.first);
+        DALI_ENFORCE(ret != -1,
+          "Cache for " + image_pair.first + " could not be populated.");
+        //shm_cached_items_.push_back(image_pair.first);
 
-    //outfile << "Cache written : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
+        outfile << "\twritten : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
 
-    //ret = ce->close_segment();
-    //DALI_ENFORCE(ret != -1,
-    //  "Cache for " + image_pair.first + " could not be closed.");
+        //ret = ce->close_segment();
+        //DALI_ENFORCE(ret != -1,
+        //  "Cache for " + image_pair.first + " could not be closed.");
 
-    //Update the file path to get a cache hit for its next access.
-    //std::get<0>(image_label_pairs_[cur_idx]) = ce->get_shm_path();
-    //outfile << "cached " << ce->get_shm_path() << endl;
-    delete ce;
+        //Update the file path to get a cache hit for its next access.
+        //std::get<0>(image_label_pairs_[cur_idx]) = ce->get_shm_path();
+        //outfile << "cached " << ce->get_shm_path() << endl;
+        delete ce;
+      }
   }
 
   // check if cached
   // Change this to be parameter. Hardcoded for now
   std::string prefix;
-  if (caching_done_ && is_cached(image_pair.first)){
+  //if (caching_done_ && is_cached(image_pair.first)){
+  if (cache_size_ > 0 && caching_done_ && is_cached(image_pair.first)){
     prefix = "/dev/shm/cache";
     outfile << "Got cached value for " << image_pair.first << endl;
   }
@@ -182,6 +186,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 
   //auto current_image = FileStream::Open(image_pair.first, read_ahead_);
   //auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
+  outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
   auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
   Index image_size = current_image->Size();
 

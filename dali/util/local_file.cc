@@ -114,8 +114,8 @@ namespace dali {
 
 using MappedFile = std::tuple<std::weak_ptr<void>, size_t>;
 
-// limit to half of allowed mmaped files
-static const unsigned int dali_max_mv_cnt = get_max_vm_cnt() / 2;
+// limit to half of allowed mmaped files or 65536/2 which is default
+static const unsigned int dali_max_mv_cnt = std::min(get_max_vm_cnt()/2, 32768) ;
 // number of currenlty reserved file mappings
 static unsigned int dali_reserved_mv_cnt = 0;
 
@@ -177,6 +177,7 @@ void LocalFileStream::Seek(int64 pos) {
 
 // This method saves a memcpy
 shared_ptr<void> LocalFileStream::Get(size_t n_bytes) {
+  //std::cout << "[" << getpid() << "] Reserved mv count : " << dali_reserved_mv_cnt << "\tmax : " << dali_max_mv_cnt << "\tmap c : "<< mapped_files.size() << std::endl;
   if (pos_ + n_bytes > length_) {
     return nullptr;
   }
