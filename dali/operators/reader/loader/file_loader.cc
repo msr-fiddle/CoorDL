@@ -143,12 +143,12 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
    If cache size is not full, then add this entry to cache,
    else do nothing
   */
-  outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
+  //outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
   if (cache_size_ > 0){
       bool must_cache = std::binary_search (shm_cache_index_list_.begin(), shm_cache_index_list_.end(), cur_idx);
-      outfile << "Searching for " << image_pair.first << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
+      //outfile << "Searching for " << image_pair.first << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
       if (!caching_done_ && must_cache) {
-        outfile << "Must write " << image_pair.first << endl;
+        //outfile << "Must write " << image_pair.first << endl;
         shm::CacheEntry *ce = new shm::CacheEntry(image_pair.first);
         int ret = -1;
         ret = ce->create_segment();
@@ -160,7 +160,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
           "Cache for " + image_pair.first + " could not be populated.");
         //shm_cached_items_.push_back(image_pair.first);
 
-        outfile << "\twritten : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
+        //outfile << "\twritten : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
 
         //ret = ce->close_segment();
         //DALI_ENFORCE(ret != -1,
@@ -179,14 +179,14 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
   //if (caching_done_ && is_cached(image_pair.first)){
   if (cache_size_ > 0 && caching_done_ && is_cached(image_pair.first)){
     prefix = "/dev/shm/cache";
-    outfile << "Got cached value for " << image_pair.first << endl;
+    //outfile << "Got cached value for " << image_pair.first << endl;
   }
   else
     prefix = file_root_;
 
   //auto current_image = FileStream::Open(image_pair.first, read_ahead_);
   //auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
-  outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
+  //outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
   auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
   Index image_size = current_image->Size();
 

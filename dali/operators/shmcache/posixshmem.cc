@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/file.h>
 
 #include "posixshmem.h"
 using namespace std;
@@ -27,6 +28,13 @@ using namespace std;
 namespace shm {
 
 const string prefix = "/dev/shm/cache/";  
+
+bool file_exist (const char *filename)
+{
+  struct stat   buffer;   
+  return (stat (filename, &buffer) == 0);
+}
+
 
 string create_name(string path) {
 	std::replace( path.begin(), path.end(), '/', '_');	
@@ -192,6 +200,8 @@ int CacheEntry::put_cache_simple(string from_file){
   FILE *source, *target;
   size_t n, m;
   unsigned char buff[4096];
+
+  //Open the tmp file holding a lock
   if ((source = fopen(from_file.c_str(), "rb")) == NULL){
       cerr << "File open error " << from_file.c_str() << endl;
       return -1;
@@ -201,12 +211,27 @@ int CacheEntry::put_cache_simple(string from_file){
       cerr << "File open error " << shm_path_name_tmp << endl;
       return -1;
   }
+  int lock = -1;
+  if((lock = flock(fileno(target), LOCK_EX)) == -1){
+       cerr << "Couldn't lock file" << endl;
+       return -1;
+  }
   do {
     n = fread(buff, 1, sizeof buff, source);
     if (n) m = fwrite(buff, 1, n, target);
     else   m = 0;
    } while ((n > 0) && (n == m));
-if (m) perror("copy");
+   if (m) {
+      flock(fileno(target), LOCK_UN);
+      perror("copy");
+      return -1;
+   }
+
+  int release = flock(fileno(target), LOCK_UN);
+  if (release < 0){
+     cerr << "Error unlocking file" << endl;
+     return -1;
+  }
 
 /*  char ch;
   while ((ch = fgetc(source)) != EOF)
@@ -216,9 +241,14 @@ if (m) perror("copy");
   fclose(target);
   int ret = -1;
   //rename the file
+  
   if ((ret = rename(shm_path_name_tmp.c_str(), shm_path_name.c_str())) < 0){
-    cerr << "Caching rename failed" << endl;
-    return -1;
+    if (file_exist(shm_path_name.c_str()))
+        return size_;
+    else{
+        cerr << "Caching rename failed" << endl;
+        return -1;
+    }
   }
 
   return size_;
