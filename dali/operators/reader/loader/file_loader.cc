@@ -158,7 +158,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
         ret = ce->put_cache_simple(file_root_ + "/" + image_pair.first);
         DALI_ENFORCE(ret != -1,
           "Cache for " + image_pair.first + " could not be populated.");
-        //shm_cached_items_.push_back(image_pair.first);
+        shm_cached_items_.push_back(image_pair.first);
 
         //outfile << "\twritten : size = " << ce->get_size() << " at " << ce->get_shm_path() << endl; 
 

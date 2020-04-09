@@ -132,6 +132,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
    */
   void Reset(bool wrap_to_shard) override {
     if (wrap_to_shard) {
+      std::cout << "Num Shards:" << num_shards_ << "\nShardID:" << shard_id_ << "\nShuffle seed:"<< kDaliDataloaderSeed + shuffle_seed_ << std::endl;
       current_index_ = start_index(shard_id_, num_shards_, Size());
       index_start_ = current_index_;
       index_end_ = current_index_ + Size()/num_shards_;
@@ -148,7 +149,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     // If the epoch count is 1 here, it means we have completed
     // epoch 1. SO stop caching beyond this point
     if (current_epoch_ == 1)
-      caching_done_ = true;
+       caching_done_ = true;
 
     // Create a shuffled list for caching   
     // Sort it so that search becomes easier
@@ -164,9 +165,9 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
        shm_cache_index_list_.resize(cache_size_);
        std::sort (shm_cache_index_list_.begin(), shm_cache_index_list_.end());
 
-       //outfile << "Index list to cache : " << endl;
-       //for (int i = 0; i < static_cast<int>(shm_cache_index_list_.size()); i++)
-       //   outfile << i << " : " << shm_cache_index_list_[i] << std::endl;
+       outfile << "Index list to cache : " << endl;
+       for (int i = 0; i < static_cast<int>(shm_cache_index_list_.size()); i++)
+          outfile << i << " : " << shm_cache_index_list_[i] << std::endl;
     }
        
 

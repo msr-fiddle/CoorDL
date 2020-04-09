@@ -153,11 +153,13 @@ int CacheEntry::create_segment() {
 	// Pass only the dir heirarchy to the function. 
 	// Strip off the file name
 	string dir_path(name_);
-	dir_path = dir_path.substr(0, dir_path.rfind("/"));
-	int status = mkdir_path((shm_path(dir_path, prefix)).c_str(), 0777);
-  if (status < 0){
+  if (dir_path.find('/') != string::npos){
+	  dir_path = dir_path.substr(0, dir_path.rfind("/"));
+	  int status = mkdir_path((shm_path(dir_path, prefix)).c_str(), 0777);
+    if (status < 0){
       cerr << "Error creating path " << shm_path(dir_path, prefix) << endl;
       return -1;
+    }
   }
 	
 	int flags = O_CREAT | O_RDWR;
@@ -211,6 +213,7 @@ int CacheEntry::put_cache_simple(string from_file){
       cerr << "File open error " << shm_path_name_tmp << endl;
       return -1;
   }
+  
   int lock = -1;
   if((lock = flock(fileno(target), LOCK_EX)) == -1){
        cerr << "Couldn't lock file" << endl;
@@ -226,17 +229,12 @@ int CacheEntry::put_cache_simple(string from_file){
       perror("copy");
       return -1;
    }
-
   int release = flock(fileno(target), LOCK_UN);
   if (release < 0){
      cerr << "Error unlocking file" << endl;
      return -1;
   }
 
-/*  char ch;
-  while ((ch = fgetc(source)) != EOF)
-      fputc(ch, target);
-*/
   fclose(source);
   fclose(target);
   int ret = -1;
@@ -246,7 +244,7 @@ int CacheEntry::put_cache_simple(string from_file){
     if (file_exist(shm_path_name.c_str()))
         return size_;
     else{
-        cerr << "Caching rename failed" << endl;
+        cerr << "Caching rename failed : " << strerror(errno) << endl;
         return -1;
     }
   }
