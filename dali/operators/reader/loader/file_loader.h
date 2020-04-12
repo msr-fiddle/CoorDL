@@ -170,11 +170,11 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                //nid_list.resize(Size()/num_nodes_);
                std::mt19937 gen(shuffle_seed_);
                for (int sh = 0; sh < num_shards_per_node_; sh ++){
-                   Index shard_start_idx = start_index(sh*node_id_ + num_shards_per_node_, num_shards_, Size());
+                   Index shard_start_idx = start_index(num_shards_per_node_*nid + sh, num_shards_, Size());
                    Index shard_end_idx = shard_start_idx + Size()/num_shards_;
                    Index shard_size = shard_end_idx -  shard_start_idx;
                    vector<int> cache_list_per_shard(shard_size);
-                   outfile << "\tShard " << sh*node_id_ + num_shards_per_node_ << ", size " << shard_size << std::endl;
+                   outfile << "\tShard " << nid*num_shards_per_node_ + sh << ", size " << shard_size << ", nid " << nid <<  std::endl;
                    outfile << "\t\t Index begin " << shard_start_idx << ", index end " << shard_end_idx << std::endl;
                    std::iota(cache_list_per_shard.begin(), cache_list_per_shard.end(), shard_start_idx);
                    std::shuffle(cache_list_per_shard.begin(), cache_list_per_shard.end(), gen);
@@ -182,11 +182,12 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                    nid_list.insert(nid_list.end(), cache_list_per_shard.begin(), cache_list_per_shard.end());
                }
                std::sort (nid_list.begin(), nid_list.end()); 
+               shm_cache_index_list_other_nodes[nid] = nid_list;
            }
        }
        for (int nid = 0; nid < num_nodes_; nid ++){
-           outfile << "For node " << nid << endl;
            if (shm_cache_index_list_other_nodes[nid].size() > 0){
+               outfile << "For node " << nid << endl;
                for (int i = 0; i < static_cast<int>(shm_cache_index_list_other_nodes[nid].size()); i++) 
                    outfile << "\t" << i << " : " << shm_cache_index_list_other_nodes[nid][i] << std::endl;
            }
