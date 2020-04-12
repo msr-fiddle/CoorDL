@@ -65,6 +65,8 @@ class Loader {
       shuffle_seed_(options.GetArgument<int>("shuffle_seed")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
+      num_nodes_(options.GetArgument<int>("num_nodes")),
+      node_id_(options.GetArgument<int>("node_id")),
       copy_read_data_(false),
       read_ahead_(options.GetArgument<bool>("read_ahead")),
       stick_to_shard_(options.GetArgument<bool>("stick_to_shard")),
@@ -345,6 +347,8 @@ class Loader {
   // sharding
   const int shard_id_;
   const int num_shards_;
+  const int num_nodes_;
+  const int node_id_;
 
   // if read data need to be copied or can be just shared with tensor
   bool copy_read_data_;
@@ -366,7 +370,7 @@ class Loader {
   bool lazy_init_;
   bool loading_flag_;
 
-  // Image cache
+  // Image cachen
   std::once_flag fetch_cache_;
   std::shared_ptr<ImageCache> cache_;
 
@@ -388,6 +392,7 @@ class Loader {
   };
 
   std::deque<ShardBoundaries> shards_;
+  const int num_shards_per_node_ = num_shards_ / num_nodes_;
 };
 
 template<typename T, typename... Args>

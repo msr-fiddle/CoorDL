@@ -154,9 +154,45 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     // Create a shuffled list for caching   
     // Sort it so that search becomes easier
     if (!caching_done_ && cache_size_ > 0){
-       outfile << "Seed is " << seed_ << endl;
+       outfile << "Seed is " << shuffle_seed_ << endl;
+
+       //Get the cache list for other nodes
+       if ( num_nodes_ > 1) {
+           shm_cache_index_list_other_nodes.resize(num_nodes_);
+           for (int nid = 0; nid < num_nodes_; nid ++ ){
+               if (nid == node_id_){
+                   // We are in the current node; do nothing
+                   continue;
+               }
+               vector<int> nid_list = shm_cache_index_list_other_nodes[nid];
+               outfile << "For node " << nid << std::endl;
+               // Resize list to the total size of shards in this node
+               //nid_list.resize(Size()/num_nodes_);
+               std::mt19937 gen(shuffle_seed_);
+               for (int sh = 0; sh < num_shards_per_node_; sh ++){
+                   Index shard_start_idx = start_index(sh*node_id_ + num_shards_per_node_, num_shards_, Size());
+                   Index shard_end_idx = shard_start_idx + Size()/num_shards_;
+                   Index shard_size = shard_end_idx -  shard_start_idx;
+                   vector<int> cache_list_per_shard(shard_size);
+                   outfile << "\tShard " << sh*node_id_ + num_shards_per_node_ << ", size " << shard_size << std::endl;
+                   outfile << "\t\t Index begin " << shard_start_idx << ", index end " << shard_end_idx << std::endl;
+                   std::iota(cache_list_per_shard.begin(), cache_list_per_shard.end(), shard_start_idx);
+                   std::shuffle(cache_list_per_shard.begin(), cache_list_per_shard.end(), gen);
+                   cache_list_per_shard.resize(cache_size_);
+                   nid_list.insert(nid_list.end(), cache_list_per_shard.begin(), cache_list_per_shard.end());
+               }
+               std::sort (nid_list.begin(), nid_list.end()); 
+           }
+       }
+       for (int nid = 0; nid < num_nodes_; nid ++){
+           outfile << "For node " << nid << endl;
+           if (shm_cache_index_list_other_nodes[nid].size() > 0){
+               for (int i = 0; i < static_cast<int>(shm_cache_index_list_other_nodes[nid].size()); i++) 
+                   outfile << "\t" << i << " : " << shm_cache_index_list_other_nodes[nid][i] << std::endl;
+           }
+       }
        //shm_cache_index_list_.resize(cache_size_);
-       std::mt19937 gen(seed_);
+       std::mt19937 gen(shuffle_seed_);
        //std::uniform_int_distribution<int> distr(index_start_, index_end_); 
        //std::generate(shm_cache_index_list_.begin(), shm_cache_index_list_.end(), [&](){ return distr(gen); });
        shm_cache_index_list_.resize(Size()/num_shards_);
@@ -165,7 +201,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
        shm_cache_index_list_.resize(cache_size_);
        std::sort (shm_cache_index_list_.begin(), shm_cache_index_list_.end());
 
-       outfile << "Index list to cache : " << endl;
+       outfile << "Index list to cache for this shard : " << endl;
        for (int i = 0; i < static_cast<int>(shm_cache_index_list_.size()); i++)
           outfile << i << " : " << shm_cache_index_list_[i] << std::endl;
     }
@@ -183,8 +219,11 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   using Loader<CPUBackend, ImageLabelWrapper>::shuffle_seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::cache_size_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
+  using Loader<CPUBackend, ImageLabelWrapper>::num_nodes_;
+  using Loader<CPUBackend, ImageLabelWrapper>::node_id_;
   using Loader<CPUBackend, ImageLabelWrapper>::seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::outfile;
+  using Loader<CPUBackend, ImageLabelWrapper>::num_shards_per_node_;
 
   string file_root_, file_list_;
 
@@ -196,7 +235,12 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   bool caching_done_;
   int index_start_;
   int index_end_;
+  //int num_shards_per_node_ = num_shards_ / num_nodes_;
+  //vector<int> current_shards_;
+  //vector<int> current_shards_(num_shards_per_node_);
+  //std::iota(current_shards_.begin(), current_shards_.end(), node_id_*num_shards_per_node_);
   vector<int> shm_cache_index_list_;
+  vector<vector<int>> shm_cache_index_list_other_nodes;
   vector<std::string> shm_cached_items_;
   FileStream::FileStreamMappinReserver mmap_reserver;
 };

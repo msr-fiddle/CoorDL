@@ -26,6 +26,10 @@ to sequentially read data and then randomly sample it to form a batch.)code", fa
 this parameter is ignored.)code", 1024)
   .AddOptionalArg("num_shards",
       R"code(Partition the data into this many parts (used for multiGPU training).)code", 1)
+  .AddOptionalArg("num_nodes",
+      R"code(Number of physical nodes involved in multi GPU training).)code", 1)
+  .AddOptionalArg("node_id",
+      R"code(ID of the node in multi GPU training).)code", 0)
   .AddOptionalArg("shard_id",
       R"code(Id of the part to read.)code", 0)
   .AddOptionalArg("cache_size",
@@ -62,6 +66,14 @@ size_t start_index(const size_t shard_id,
                    const size_t size) {
   return size * shard_id / shard_num;
 }
+
+
+size_t start_index_for_node(const size_t node_id,
+                   const size_t num_nodes,
+                   const size_t size) {
+  return size * node_id / num_nodes;
+}
+
 
 Index num_samples(const size_t shard_num,
                   const size_t size) {
