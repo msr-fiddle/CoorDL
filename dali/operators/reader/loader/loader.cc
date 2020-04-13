@@ -80,4 +80,31 @@ Index num_samples(const size_t shard_num,
   return static_cast<Index>(std::ceil(size * 1.0 / shard_num));
 }
 
+int initialize_socket(int port, string ip_addr) {
+  int cnct, server_fd;
+  struct sockaddr_in server;
+  struct hostent *hp;
+
+  server.sin_family=AF_INET;
+  server.sin_port=htons(port);
+  server.sin_addr.s_addr=INADDR_ANY;
+  server_fd =socket(AF_INET,SOCK_STREAM,0);
+  if(     server_fd       <       0){
+    cout<<"Error creating socket\n";
+    return -1;
+  }
+
+  cout<< " Socket created for " << port << endl;
+  hp=gethostbyname(ip_addr.c_str());
+  bcopy((char *)hp->h_addr,(char *)&server.sin_addr.s_addr,hp->h_length);
+  cnct=connect(server_fd,(struct sockaddr*)&server,sizeof(server));
+  if(cnct<0){    
+    cout<<"Error connecting " << endl;    
+    return -1;  
+  }
+  cout<<"Connection has been made for " << ip_addr  << " : " << port << endl;
+    return server_fd;
+}
+
+
 }  // namespace dali

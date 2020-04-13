@@ -42,6 +42,9 @@ directories with images in them. To obtain labels `FileReader` sorts directories
       R"code(If a value is set, it is the number of items in shared memory cache
 per loader.)code",
       int(0))
+.AddOptionalArg("node_ip",
+      R"code(Ip of the other node.)code",
+      std::string())
   .AddParent("LoaderBase");
 
 }  // namespace dali

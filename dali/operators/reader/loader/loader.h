@@ -28,11 +28,24 @@
 #include <fstream>
 #include <cstring>
 
+//For networl client
+#include<sys/types.h>  
+#include<sys/socket.h>   
+#include<netinet/in.h> 
+#include<netdb.h>  
+#include<sys/uio.h> 
+#include<sys/syscall.h> 
+#include<unistd.h> 
+#include<fcntl.h>  
+#include "commands.h" 
+
+
 #include "dali/core/common.h"
 #include "dali/core/error_handling.h"
 #include "dali/pipeline/operator/op_spec.h"
 #include "dali/pipeline/data/tensor.h"
 #include "dali/operators/decoder/cache/image_cache_factory.h"
+//#define PORT 5555
 
 namespace dali {
 
@@ -42,6 +55,8 @@ DLL_PUBLIC size_t start_index(const size_t shard_id,
 
 DLL_PUBLIC Index num_samples(const size_t shard_num,
                              const size_t size);
+
+DLL_PUBLIC int initialize_socket(int port, std::string ip_addr);
 /**
  * @brief Base class for Loaders, responsible for reading samples from resource of some kind
  *        into memory.

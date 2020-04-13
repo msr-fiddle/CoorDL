@@ -30,6 +30,16 @@
 #include "dali/operators/reader/loader/loader.h"
 #include "dali/util/file.h"
 
+#include<sys/types.h> 
+#include<sys/socket.h>  
+#include<netinet/in.h>   
+#include<netdb.h> 
+#include<sys/uio.h>    
+#include<sys/syscall.h>  
+#include<unistd.h>  
+#include<fcntl.h>
+#include "commands.h"
+
 namespace dali {
 
 namespace filesystem {
@@ -43,6 +53,39 @@ struct ImageLabelWrapper {
   int label;
 };
 
+/*
+int initialize_socket(int port, string ip_addr) {
+  int cnct, server_fd;
+  struct sockaddr_in server;
+  struct hostent *hp;
+
+  server.sin_family=AF_INET;
+  server.sin_port=htons(port);
+  server.sin_addr.s_addr=INADDR_ANY;
+  server_fd =socket(AF_INET,SOCK_STREAM,0);
+  if(     server_fd       <       0){
+    cout<<"Error creating socket\n";
+    return -1;
+  }
+
+  cout<<"Socket created for " << port << endl;
+  hp=gethostbyname(ip_addr.c_str());
+  bcopy((char *)hp->h_addr,(char *)&server.sin_addr.s_addr,hp->h_length);
+  cnct=connect(server_fd,(struct sockaddr*)&server,sizeof(server));
+  if(cnct<0){
+    cout<<"Error connecting " << endl;
+    return -1;
+  }
+  cout<<"Connection has been made\n";
+  return server_fd;
+}
+*/
+
+
+
+
+
+
 class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
  public:
   explicit inline FileLoader(
@@ -52,11 +95,21 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     : Loader<CPUBackend, ImageLabelWrapper>(spec),
       file_root_(spec.GetArgument<string>("file_root")),
       file_list_(spec.GetArgument<string>("file_list")),
+      node_ip_(spec.GetArgument<string>("node_ip")),
       image_label_pairs_(std::move(image_label_pairs)),
       shuffle_after_epoch_(shuffle_after_epoch),
       current_index_(0),
       current_epoch_(0), 
       caching_done_(false) {
+
+      //Init the clients
+      outfile << "Node IP = " << node_ip_ << ", port = " << port_ << endl;
+      if (!node_ip_.empty() && (cache_size_ > 0)) {
+          dist_mint = true;
+          server_ip = initialize_socket(port_, node_ip_);
+      }
+      outfile << "shard_id = " << shard_id_ << ", dist_mint = " << dist_mint << endl;
+
       /*
       * Those options are mutually exclusive as `shuffle_after_epoch` will make every shard looks differently
       * after each epoch so coexistence with `stick_to_shard` doesn't make any sense
@@ -86,6 +139,10 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   void ReadSample(ImageLabelWrapper &tensor) override;
   
   ~FileLoader() {
+     if (server_ip > 0) {
+         close(server_ip);
+         shutdown(server_ip, 0);
+     }
      outfile << "Order of shm cached items : " << endl;
      for(int i=0; i < static_cast<int>(shm_cached_items_.size()); i++)
          outfile << i << " : " << shm_cached_items_[i] << endl;
@@ -192,6 +249,9 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                    outfile << "\t" << i << " : " << shm_cache_index_list_other_nodes[nid][i] << std::endl;
            }
        }
+
+       outfile << "Node IP : " << node_ip_ << endl;
+       outfile << "TCP Port : " << port_ << endl;
        //shm_cache_index_list_.resize(cache_size_);
        std::mt19937 gen(shuffle_seed_);
        //std::uniform_int_distribution<int> distr(index_start_, index_end_); 
@@ -226,7 +286,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   using Loader<CPUBackend, ImageLabelWrapper>::outfile;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_per_node_;
 
-  string file_root_, file_list_;
+  string file_root_, file_list_, node_ip_;
 
   //A map of file paths, label and a bool that indicates whether cached
   vector<std::pair<string, int>> image_label_pairs_;
@@ -236,6 +296,9 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   bool caching_done_;
   int index_start_;
   int index_end_;
+  int port_ = PORT + shard_id_;
+  int server_ip = 0;
+  bool dist_mint = false;
   //int num_shards_per_node_ = num_shards_ / num_nodes_;
   //vector<int> current_shards_;
   //vector<int> current_shards_(num_shards_per_node_);
