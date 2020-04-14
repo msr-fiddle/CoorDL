@@ -22,12 +22,68 @@
 #include <pthread.h>
 #include <sys/file.h>
 
+#include "../reader/loader/commands.h"
 #include "posixshmem.h"
 using namespace std;
 
 namespace shm {
 
 const string prefix = "/dev/shm/cache/";  
+
+int read_header_from_other_node(int server_fd, string fname) {
+	cout << "Reading file " << fname << endl;
+	char request[REQUEST_SIZE] = "GET ";
+	strncpy(request + GET_SIZE, fname.c_str(), fname.length());
+//	cout << "Request is " << request << " of size " << REQUEST_SIZE << endl;
+	int ret = send(server_fd, request, REQUEST_SIZE, 0);
+	if (ret < 0){
+		cerr << "Error sending request" << endl;
+		return -1;
+	}
+	unsigned char header[HEADER_SIZE];
+	int r = recv(server_fd, header, sizeof(header), 0);
+	if (strcmp(reinterpret_cast<const char*>(header), "NOTFOUND") == 0) {
+		cout << "File " << fname  << " requested was notfound on server cache" << endl;
+		return -1;     
+	}
+
+	unsigned long msg_size = *(reinterpret_cast<unsigned long *>(header));
+	cout << "Header is " << msg_size << " and size " << sizeof(header) << endl;
+	return msg_size;
+}
+
+
+int read_from_other_node(int server_fd, string fname, uint8_t * buf, unsigned long msg_size) {
+	int msg_read = 0;
+	int rec = 0;
+	//char buf[msg_size];
+	do {
+		rec = recv(server_fd, buf + msg_read, msg_size, 0);
+		msg_read += rec;
+		if(rec < 0){
+			cout<<"Error receiving\n";
+			return 0;   
+		}
+	}while (rec!=0 && (msg_read < msg_size)); 
+	
+	return rec;
+
+}
+
+int is_cached_in_other_node(std::vector<std::vector<std::string>> cache_lists, std::string sample_name, int node_id) {
+	int num_nodes = cache_lists.size();
+	for (int i = 0; i < num_nodes; i++){
+		if (i == node_id)
+			continue;
+		else {
+			//do a binary search on cache_list[i]
+			bool found = std::binary_search (cache_lists[i].begin(), cache_lists[i].end(), sample_name);
+			if (found)
+				return i;
+		}
+	}
+	return -1;
+}
 
 bool file_exist (const char *filename)
 {

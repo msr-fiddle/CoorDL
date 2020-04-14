@@ -20,6 +20,22 @@ namespace shm{
 
 extern const std::string prefix;  
 
+/* Reads one sample from a remote node whose tcp port is 
+ * given by the open server_fd.
+ * Returns the number of bytes read
+ * This has to be called after validating that the sample
+ * exists in the node you're requesting
+ */
+int read_from_other_node(int server_fd, std::string fname, uint8_t * buf, unsigned long msg_size);
+int read_header_from_other_node(int server_fd, std::string fname);
+
+
+/* Returns the node where this sample is cached in memory
+ * If not cached anywhere and needs to be fetched from one's own
+ * disk, then returns -1
+ */
+int is_cached_in_other_node(std::vector<std::vector<std::string>> cache_lists, std::string sample_name, int node_id);
+
 class CacheEntry {
     public:
 

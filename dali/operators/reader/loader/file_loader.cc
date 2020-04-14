@@ -144,7 +144,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
    else do nothing
   */
   //outfile << "SHM cache list length " << shm_cache_index_list_.size() << endl;
-  if (cache_size_ > 0){
+  if (cache_size_ > 0 && !caching_done_){
       bool must_cache = std::binary_search (shm_cache_index_list_.begin(), shm_cache_index_list_.end(), cur_idx);
       //outfile << "Searching for " << image_pair.first << " found : " << must_cache << " cache done? : " << caching_done_ << endl; 
       if (!caching_done_ && must_cache) {
@@ -175,39 +175,79 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 
   // check if cached
   // Change this to be parameter. Hardcoded for now
+	bool use_prefix = true;
   std::string prefix;
-  //if (caching_done_ && is_cached(image_pair.first)){
-  if (cache_size_ > 0 && caching_done_ && is_cached(image_pair.first)){
-    prefix = "/dev/shm/cache";
-    //outfile << "Got cached value for " << image_pair.first << endl;
+	prefix = file_root_;
+	int node = -1;
+  if (cache_size_ > 0 && caching_done_){
+		// Check current node
+		if (is_cached(image_pair.first)){
+    	prefix = "/dev/shm/cache";
+    	outfile << "Got local cached value for " << image_pair.first << endl;
+		}
+		//Check other nodes
+		else if ((node = shm::is_cached_in_other_node(shm_cache_index_list_other_nodes, image_pair.first, node_id_)) >= 0) {
+	    outfile << "Available in node " << node << " for " << image_pair.first << endl;
+			use_prefix = false;
+			net_mutex_.lock();
+			Index image_size = shm::read_header_from_other_node(server_fd_, image_pair.first);		
+	    outfile << "\tImage size " << image_size << " for " << image_pair.first << endl;
+			if (image_size < 0) {
+			  net_mutex_.unlock();
+				outfile << "Unsuccessful header read from node " << node << " for " << image_pair.first << endl;
+				prefix = file_root_;
+				use_prefix = true;
+			}
+			else { 	
+				if (image_label.image.shares_data()) {
+					image_label.image.Reset();
+				}
+				image_label.image.Resize({image_size});
+				int bytes_read = shm::read_from_other_node(server_fd_, image_pair.first, image_label.image.mutable_data<uint8_t>(), image_size);
+				net_mutex_.unlock();			
+				if (bytes_read < 0){
+					outfile << "Unsuccessful read from node " << node << " for " << image_pair.first << endl;
+					prefix = file_root_;
+					use_prefix = true;
+				}
+				else{
+    			outfile << "Got remote cached value for " << image_pair.first << endl;
+				}
+  		}
+		}
+    else
+			outfile << "Sample " << image_pair.first << " not found in any cache. Must fetch" << endl;
   }
   else
     prefix = file_root_;
 
-  //auto current_image = FileStream::Open(image_pair.first, read_ahead_);
-  //auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
-  //outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
-  auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
-  Index image_size = current_image->Size();
 
-  if (copy_read_data_) {
-    //std::cout << "Copying " << image_pair.first << std::endl;
-    if (image_label.image.shares_data()) {
-      image_label.image.Reset();
-    }
-    image_label.image.Resize({image_size});
-    // copy the image
-    current_image->Read(image_label.image.mutable_data<uint8_t>(), image_size);
-  } else {
-    //std::cout << "Sharing " << image_pair.first << std::endl;
-    auto p = current_image->Get(image_size);
-    // Wrap the raw data in the Tensor object.
-    image_label.image.ShareData(p, image_size, {image_size});
-    image_label.image.set_type(TypeInfo::Create<uint8_t>());
-  }
+	if (use_prefix) {
+  	//auto current_image = FileStream::Open(image_pair.first, read_ahead_);
+  	//auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
+  	//outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
+  	auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
+  	Index image_size = current_image->Size();
 
-  // close the file handle
-  current_image->Close();
+  	if (copy_read_data_) {
+    	//std::cout << "Copying " << image_pair.first << std::endl;
+    	if (image_label.image.shares_data()) {
+      	image_label.image.Reset();
+    	}
+    	image_label.image.Resize({image_size});
+    	// copy the image
+    	current_image->Read(image_label.image.mutable_data<uint8_t>(), image_size);
+  	} else {
+    	//std::cout << "Sharing " << image_pair.first << std::endl;
+    	auto p = current_image->Get(image_size);
+    	// Wrap the raw data in the Tensor object.
+    	image_label.image.ShareData(p, image_size, {image_size});
+    	image_label.image.set_type(TypeInfo::Create<uint8_t>());
+  	}
+
+  	// close the file handle
+  	current_image->Close();
+	}
   auto finish = std::chrono::high_resolution_clock::now();
   //std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count() << "ns\n";
 

@@ -7,6 +7,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<netdb.h>
+#include<sys/uio.h>
+#include<fcntl.h>
+#include<sys/syscall.h>
+#include<string.h>
+
 
 #define REQUEST_SIZE 100
 #define GET_SIZE 4

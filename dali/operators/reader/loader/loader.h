@@ -364,6 +364,7 @@ class Loader {
   const int num_shards_;
   const int num_nodes_;
   const int node_id_;
+  std::mutex net_mutex_;
 
   // if read data need to be copied or can be just shared with tensor
   bool copy_read_data_;
