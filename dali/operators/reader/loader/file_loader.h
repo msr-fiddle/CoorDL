@@ -207,6 +207,10 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
       outfile << "Cache size : " << cache_size_  << "\nCached : " << caching_done_ << endl;
       outfile << "Current index : " << current_index_ << "\nindex_start : " << index_start_ << "\nindex_end : " << index_end_ << endl;
 
+    if (shuffle_after_epoch_) {
+      std::mt19937 g(kDaliDataloaderSeed + shuffle_seed_ + current_epoch_);
+      std::shuffle(image_label_pairs_.begin(), image_label_pairs_.end(), g);
+    }
     // If the epoch count is 1 here, it means we have completed
     // epoch 1. SO stop caching beyond this point
     if (current_epoch_ == 1)
@@ -240,6 +244,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                    std::iota(cache_list_per_shard.begin(), cache_list_per_shard.end(), shard_start_idx);
                    std::shuffle(cache_list_per_shard.begin(), cache_list_per_shard.end(), gen);
                    cache_list_per_shard.resize(cache_size_);
+				   std::sort (cache_list_per_shard.begin(), cache_list_per_shard.end());
                    vector<string> cache_list_per_shard_name;
                    outfile << "For node " << nid <<  " shard : " << sh << endl;
 									 for (int k=0; k < cache_list_per_shard.size(); k++) {
@@ -284,10 +289,6 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
 
     current_epoch_++;
 
-    if (shuffle_after_epoch_) {
-      std::mt19937 g(kDaliDataloaderSeed + shuffle_seed_ + current_epoch_);
-      std::shuffle(image_label_pairs_.begin(), image_label_pairs_.end(), g);
-    }
   }
 
   using Loader<CPUBackend, ImageLabelWrapper>::shard_id_;
