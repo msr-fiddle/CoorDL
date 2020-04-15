@@ -41,8 +41,8 @@ int read_header_from_other_node(int server_fd, string fname) {
 		return -1;
 	}
 	unsigned char header[HEADER_SIZE];
-	int r = recv(server_fd, header, sizeof(header), 0);
-	if (strcmp(reinterpret_cast<const char*>(header), "NOTFOUND") == 0) {
+	int r = recv(server_fd, header, HEADER_SIZE, 0);
+	if (strcmp(reinterpret_cast<const char*>(header), "NOFOUND") == 0) {
 		cout << "File " << fname  << " requested was notfound on server cache" << endl;
 		return -1;     
 	}

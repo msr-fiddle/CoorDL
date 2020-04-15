@@ -187,11 +187,12 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 		}
 		//Check other nodes
 		else if ((node = shm::is_cached_in_other_node(shm_cache_index_list_other_nodes, image_pair.first, node_id_)) >= 0) {
-	    outfile << "Available in node " << node << " for " << image_pair.first << endl;
+	    outfile << "Available in node " << node << " for " << image_pair.first << " on " << server_fd_ << endl;
 			use_prefix = false;
 			net_mutex_.lock();
-			Index image_size = shm::read_header_from_other_node(server_fd_, image_pair.first);		
+			long long image_size = shm::read_header_from_other_node(server_fd_, image_pair.first);		
 	    outfile << "\tImage size " << image_size << " for " << image_pair.first << endl;
+			//net_mutex_.unlock();
 			if (image_size < 0) {
 			  net_mutex_.unlock();
 				outfile << "Unsuccessful header read from node " << node << " for " << image_pair.first << endl;
@@ -225,7 +226,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 	if (use_prefix) {
   	//auto current_image = FileStream::Open(image_pair.first, read_ahead_);
   	//auto current_image = FileStream::Open(file_root_ + "/" + image_pair.first, read_ahead_);
-  	//outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
+  	outfile << "\tReading " << prefix << "/" << image_pair.first << endl;
   	auto current_image = FileStream::Open(prefix + "/" + image_pair.first, read_ahead_);
   	Index image_size = current_image->Size();
 

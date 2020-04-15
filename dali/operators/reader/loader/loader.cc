@@ -102,6 +102,17 @@ int initialize_socket(int port, string ip_addr) {
     cout<<"Error connecting " << endl;    
     return -1;  
   }
+
+  int yes = 1;
+  int result = setsockopt(server_fd, 
+													IPPROTO_TCP,
+													TCP_NODELAY,
+													(char *) &yes, 
+													sizeof(int));  
+	if (result < 0){
+    cout<<"Error setting NO_DELAY " << endl;    
+    return -1;  
+  }
   cout<<"Connection has been made for " << ip_addr  << " : " << port << endl;
     return server_fd;
 }
