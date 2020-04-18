@@ -54,6 +54,15 @@ int read_header_from_other_node(int server_fd, string fname) {
 
 
 int read_from_other_node(int server_fd, string fname, uint8_t * buf, unsigned long msg_size) {
+
+        char request[REQUEST_SIZE] = "GET ";     
+        strncpy(request + GET_SIZE, fname.c_str(), fname.length());  
+        int ret = send(server_fd, request, REQUEST_SIZE, 0);   
+        if (ret < 0){ 
+            cerr << "Error sending request" << endl;    
+             return -1; 
+        }
+
 	int msg_read = 0;
 	int rec = 0;
 	//char buf[msg_size];
@@ -70,7 +79,7 @@ int read_from_other_node(int server_fd, string fname, uint8_t * buf, unsigned lo
 
 }
 
-int is_cached_in_other_node(std::vector<std::vector<std::string>> cache_lists, std::string sample_name, int node_id) {
+int is_cached_in_other_node(std::vector<std::vector<std::string>> &cache_lists, std::string sample_name, int node_id) {
 	int num_nodes = cache_lists.size();
 	for (int i = 0; i < num_nodes; i++){
 		if (i == node_id)

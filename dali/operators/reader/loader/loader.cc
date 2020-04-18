@@ -95,6 +95,17 @@ int initialize_socket(int port, string ip_addr) {
   }
 
   cout<< " Socket created for " << port << endl;
+
+  if (!set_tcp_nodelay(server_fd))
+    return -1;
+
+  //if (!set_recv_window(server_fd, 80000))
+  //  return -1;
+
+  //if (!set_send_window(server_fd, 80000))
+  //  return -1;
+
+
   hp=gethostbyname(ip_addr.c_str());
   bcopy((char *)hp->h_addr,(char *)&server.sin_addr.s_addr,hp->h_length);
   cnct=connect(server_fd,(struct sockaddr*)&server,sizeof(server));
@@ -103,18 +114,11 @@ int initialize_socket(int port, string ip_addr) {
     return -1;  
   }
 
-  int yes = 1;
-  int result = setsockopt(server_fd, 
-													IPPROTO_TCP,
-													TCP_NODELAY,
-													(char *) &yes, 
-													sizeof(int));  
-	if (result < 0){
-    cout<<"Error setting NO_DELAY " << endl;    
-    return -1;  
-  }
+
+  print_socket_options (server_fd);
+
   cout<<"Connection has been made for " << ip_addr  << " : " << port << endl;
-    return server_fd;
+  return server_fd;
 }
 
 

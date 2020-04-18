@@ -14,7 +14,7 @@
 #include<fcntl.h>
 #include<sys/syscall.h>
 #include<string.h>
-
+#include <netinet/tcp.h>
 
 #define REQUEST_SIZE 100
 #define GET_SIZE 4
@@ -25,5 +25,13 @@
 #define NOT_FOUND "NOTFOUND"
 #define PORT 5555
 
+namespace dali {
+
+void print_socket_options (int sockfd);
+bool set_recv_window(int sockfd, int len_bytes);
+bool set_send_window(int sockfd, int len_bytes);
+bool set_tcp_nodelay(int sockfd);
 //std::string prefix = "/dev/shm/cache/";
+
+} //namesapce dali
 #endif 

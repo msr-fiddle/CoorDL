@@ -38,7 +38,6 @@
 #include<unistd.h> 
 #include<fcntl.h>  
 #include "commands.h" 
-#include <netinet/tcp.h>
 
 #include "dali/core/common.h"
 #include "dali/core/error_handling.h"
