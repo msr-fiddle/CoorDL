@@ -63,6 +63,8 @@ class Loader {
       seed_(options.GetArgument<Index>("seed")),
       cache_size_(options.GetArgument<int>("cache_size")),
       shuffle_seed_(options.GetArgument<int>("shuffle_seed")),
+      supporting_(options.GetArgument<bool>("replacement")),
+      supporting_start_batch_(options.GetArgument<int>("supporting_start_batch")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
       copy_read_data_(false),
@@ -342,6 +344,8 @@ class Loader {
   //shuffle seed
   const int shuffle_seed_;
 
+  bool supporting_;
+  const int supporting_start_batch_;
   // sharding
   const int shard_id_;
   const int num_shards_;

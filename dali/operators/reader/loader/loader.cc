@@ -32,6 +32,10 @@ this parameter is ignored.)code", 1024)
       R"code(Number of items to cache for this loader.)code", 0)
   .AddOptionalArg("shuffle_seed",
       R"code(Shuffle the initial dataset metadata)code", 0)
+  .AddOptionalArg("replacement",
+      R"code(A supporting pipeline that lives only for one epoch)code", false)
+  .AddOptionalArg("supporting_start_batch",
+      R"code(A supporting pipeline that lives only for one epoch)code", 0)
   .AddOptionalArg("tensor_init_bytes",
       R"code(Hint for how much memory to allocate per image.)code", 1048576)
   .AddOptionalArg("stick_to_shard",

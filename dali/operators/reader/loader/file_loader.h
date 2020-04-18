@@ -18,6 +18,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <cstdlib>
 
 #include <fstream>
 #include <string>
@@ -135,11 +136,21 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
       current_index_ = start_index(shard_id_, num_shards_, Size());
       index_start_ = current_index_;
       index_end_ = current_index_ + Size()/num_shards_;
+      if(supporting_){
+          index_start_ = index_start_ + supporting_start_batch_;
+          current_index_ = index_start_;
+          outfile << "Supporting index to skip: " << supporting_start_batch_ << endl;
+          outfile << "Supporting index start: " << index_start_ << endl;
+      }
       //outfile << __FILE__ << " Reset : wrap to shard" << endl;
     } else {
       current_index_ = 0;
       index_start_ = current_index_;
       index_end_ = current_index_ + Size()/num_shards_;
+      if(supporting_){
+          index_start_ = index_start_ + supporting_start_batch_;
+          current_index_ = index_start_;
+      }
     }
       outfile << "Current Epoch : " << current_epoch_ << endl;
       outfile << "Cache size : " << cache_size_  << "\nCached : " << caching_done_ << endl;
@@ -149,6 +160,9 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     // epoch 1. SO stop caching beyond this point
     if (current_epoch_ == 1)
       caching_done_ = true;
+
+    //if (current_epoch_ == 1 && supporting_)
+    //  exit(EXIT_SUCCESS);
 
     // Create a shuffled list for caching   
     // Sort it so that search becomes easier
@@ -181,6 +195,8 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   using Loader<CPUBackend, ImageLabelWrapper>::shard_id_;
   using Loader<CPUBackend, ImageLabelWrapper>::shuffle_seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::cache_size_;
+  using Loader<CPUBackend, ImageLabelWrapper>::supporting_;
+  using Loader<CPUBackend, ImageLabelWrapper>::supporting_start_batch_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
   using Loader<CPUBackend, ImageLabelWrapper>::seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::outfile;
