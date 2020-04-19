@@ -65,9 +65,15 @@ int read_from_other_node(int server_fd, string fname, uint8_t * buf, unsigned lo
 
 	int msg_read = 0;
 	int rec = 0;
-	//char buf[msg_size];
 	do {
 		rec = recv(server_fd, buf + msg_read, msg_size, 0);
+		if (rec == HEADER_SIZE) {
+			if (strcmp(reinterpret_cast<const char*>(buf), "NOFOUND") == 0) {
+				cout << "File " << fname  << " requested was notfound on server cache" << endl;
+				return -1;
+			}
+
+		}
 		msg_read += rec;
 		if(rec < 0){
 			cout<<"Error receiving\n";
