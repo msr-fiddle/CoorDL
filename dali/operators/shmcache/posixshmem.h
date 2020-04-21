@@ -41,6 +41,9 @@ int read_file_from_other_node(int server_fd, std::string fname, uint8_t * buf, u
  */
 int is_cached_in_other_node(std::vector<std::vector<std::string>> &cache_lists, std::string sample_name, int node_id);
 
+
+void prefetch_cache(std::vector<std::string> items_not_in_node, int start_idx, int end_idx, std::string file_root);
+
 class CacheEntry {
     public:
 

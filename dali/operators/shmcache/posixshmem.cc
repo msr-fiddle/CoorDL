@@ -100,6 +100,28 @@ int is_cached_in_other_node(std::vector<std::vector<std::string>> &cache_lists, 
 	return -1;
 }
 
+void prefetch_cache(std::vector<std::string> items_not_in_node, int start_idx, int end_idx, std::string file_root){
+	for (int i = start_idx; i < end_idx; i++){
+		std::string img = items_not_in_node[i];
+		CacheEntry *ce = new CacheEntry(img);
+		int ret = -1;    	
+		ret = ce->create_segment(); 
+		if(ret == -1) {
+			std::cerr << "Cache for " << img << " could not be created." << std::endl; 
+			return;
+		}	
+		ret = ce->put_cache_simple(file_root + "/" + img); 
+		if(ret == -1){
+			std::cerr << "Cache for " << img << " could not be populated." << std::endl;
+			return;
+		}
+
+		std::cout << "Cache written for " << img << std::endl;
+		delete ce; 
+	}
+}
+
+
 bool file_exist (const char *filename)
 {
   struct stat   buffer;   
@@ -284,27 +306,28 @@ int CacheEntry::put_cache_simple(string from_file){
       cerr << "File open error " << shm_path_name_tmp << endl;
       return -1;
   }
-  
+  /* 
   int lock = -1;
   if((lock = flock(fileno(target), LOCK_EX)) == -1){
        cerr << "Couldn't lock file" << endl;
        return -1;
-  }
+  }*/
   do {
     n = fread(buff, 1, sizeof buff, source);
     if (n) m = fwrite(buff, 1, n, target);
     else   m = 0;
    } while ((n > 0) && (n == m));
    if (m) {
-      flock(fileno(target), LOCK_UN);
+      //flock(fileno(target), LOCK_UN);
       perror("copy");
       return -1;
    }
+  /*
   int release = flock(fileno(target), LOCK_UN);
   if (release < 0){
      cerr << "Error unlocking file" << endl;
      return -1;
-  }
+  }*/
 
   fclose(source);
   fclose(target);

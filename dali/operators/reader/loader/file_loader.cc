@@ -20,7 +20,6 @@
 #include "dali/operators/reader/loader/file_loader.h"
 #include "dali/util/file.h"
 #include "dali/operators/reader/loader/utils.h"
-#include "dali/operators/shmcache/posixshmem.h"
 
 #include <chrono>
 typedef std::chrono::high_resolution_clock Time;

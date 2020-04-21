@@ -75,7 +75,7 @@ class Loader {
                           * options.GetArgument<int>("batch_size")),
       tensor_init_bytes_(options.GetArgument<int>("tensor_init_bytes")),
       seed_(options.GetArgument<Index>("seed")),
-      cache_size_(options.GetArgument<int>("cache_size")),
+      cache_size_orig_(options.GetArgument<int>("cache_size")),
       shuffle_seed_(options.GetArgument<int>("shuffle_seed")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
@@ -96,7 +96,7 @@ class Loader {
     DALI_ENFORCE(num_shards_ > shard_id_, "num_shards needs to be greater than shard_id");
     // initialize a random distribution -- this will be
     // used to pick from our sample buffer
-    string ofname = to_string(shard_id_) + "-" + to_string(cache_size_) + ".log";
+    string ofname = to_string(shard_id_) + "-" + to_string(cache_size_orig_) + ".log";
     outfile.open(ofname);
     std::seed_seq seq({seed_});
     e_ = std::default_random_engine(seq);
@@ -354,7 +354,7 @@ class Loader {
   std::mutex empty_tensors_mutex_;
 
   // caching
-  const int cache_size_;
+  const int cache_size_orig_;
 
   //shuffle seed
   const int shuffle_seed_;

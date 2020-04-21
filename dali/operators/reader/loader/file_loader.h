@@ -25,9 +25,11 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <thread>
 
 #include "dali/core/common.h"
 #include "dali/operators/reader/loader/loader.h"
+#include "dali/operators/shmcache/posixshmem.h"
 #include "dali/util/file.h"
 
 #include<sys/types.h> 
@@ -92,7 +94,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
 
       //Init the clients
       if (dist_mint) {
-          DALI_ENFORCE( cache_size_ > 0, "Cache size must be non zero in dist mint");
+          DALI_ENFORCE( cache_size_orig_ > 0, "Cache size must be non zero in dist mint");
           for (unsigned int i = 0; i < node_port_list_.size(); i ++) {
             if (i == node_id_){
               shard_port_list_.push_back(0);
@@ -144,6 +146,8 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
           shutdown(server_fd_[i], 0);
         }
       }
+      if (prefetcher_running)
+          mint_prefetcher.join();
     }
      outfile << "Order of shm cached items : " << endl;
      for(int i=0; i < static_cast<int>(shm_cached_items_.size()); i++)
@@ -173,6 +177,16 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
       }
     }
     DALI_ENFORCE(Size() > 0, "No files found.");
+
+    Index size_per_shard = Size()/num_shards_;
+    if (cache_size_orig_ > size_per_shard) {
+      extra_cache_size_ = cache_size_orig_ - size_per_shard;
+      cache_size_ = size_per_shard;
+    }
+    else
+      cache_size_ = cache_size_orig_;
+
+    outfile << "Per shard = " << size_per_shard << ", cache = " << cache_size_ << ", extra cache = " << extra_cache_size_ << ", orig cache = "<<cache_size_orig_ << endl;
 
     if (shuffle_) {
       // seeded with hardcoded value to get
@@ -260,6 +274,31 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                outfile << "Node IP : " << node_ip_list_[nid] << endl;
                outfile << "TCP Port : " << shard_port_list_[nid] << endl;
            }
+
+           // if we have extra items to cache, handle here
+           if (extra_cache_size_ > 0 && dist_mint){
+               outfile << "EXTRA data cache for " << shard_id_ << endl;
+               vector<string> items_not_in_node;
+               for (unsigned int it = 0; it < num_nodes_; it ++){
+                  if (it != node_id_)
+                     items_not_in_node.insert(items_not_in_node.end(), shm_cache_index_list_other_nodes[it].begin(), shm_cache_index_list_other_nodes[it].end());
+               }
+               // Get a random shuffle order at each node so that what is in cache of each node is random
+               // halps balance nodes to remote caches
+               std::mt19937 gen_s(shuffle_seed_ + node_id_);
+               std::shuffle(items_not_in_node.begin(), items_not_in_node.end(), gen_s);
+               outfile << "Items not cached in current node = " << items_not_in_node.size() << endl;
+               Index items_per_shard = items_not_in_node.size()/num_shards_per_node_;
+               outfile << "Extra items required per shard = " << extra_cache_size_ << ", available indexes per shard " << items_per_shard << endl;
+               Index start_idx = (shard_id_ % num_shards_per_node_)*extra_cache_size_;
+               Index end_idx = (shard_id_ % num_shards_per_node_ + 1)*extra_cache_size_;
+               outfile << "Shard " << shard_id_ << " start : " << start_idx << ", end : " << end_idx << endl;
+               mint_prefetcher = std::thread(shm::prefetch_cache, items_not_in_node, start_idx, end_idx, file_root_);
+               prefetcher_running = true;
+           }
+
+           
+
        }
        /*for (int nid = 0; nid < num_nodes_; nid ++){
            if (shm_cache_index_list_other_nodes[nid].size() > 0){
@@ -295,7 +334,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
 
   using Loader<CPUBackend, ImageLabelWrapper>::shard_id_;
   using Loader<CPUBackend, ImageLabelWrapper>::shuffle_seed_;
-  using Loader<CPUBackend, ImageLabelWrapper>::cache_size_;
+  using Loader<CPUBackend, ImageLabelWrapper>::cache_size_orig_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_nodes_;
   using Loader<CPUBackend, ImageLabelWrapper>::node_id_;
@@ -309,7 +348,8 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   vector<int> node_port_list_;
   vector<int> shard_port_list_;
   vector<int> server_fd_;
-
+  int extra_cache_size_ = 0;
+  int cache_size_ = 0;
   //A map of file paths, label and a bool that indicates whether cached
   vector<std::pair<string, int>> image_label_pairs_;
 //  vector<std::pair<string, int>> image_label_pairs_orig_;
@@ -320,6 +360,8 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   int index_start_;
   int index_end_;
   bool dist_mint = false;
+  std::thread mint_prefetcher;
+  bool prefetcher_running = false;
   //int num_shards_per_node_ = num_shards_ / num_nodes_;
   //vector<int> current_shards_;
   //vector<int> current_shards_(num_shards_per_node_);
