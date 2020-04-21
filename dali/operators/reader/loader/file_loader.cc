@@ -204,13 +204,13 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 		}
 		//Check other nodes
 		else if ((node = shm::is_cached_in_other_node(shm_cache_index_list_other_nodes, image_pair.first, node_id_)) >= 0) {
-	    //outfile << "Available in node " << node << " for " << image_pair.first << " on " << server_fd_ << endl;
+	    //outfile << "Available in node " << node << " for " << image_pair.first << " on " << server_fd_[node] << endl;
       //auto finish1 = Time::now();
       //auto diff1 = (finish1-start);
       //us elapsed_time1 = std::chrono::duration_cast<us>(diff1);	
       //outfile << "Time for " << image_pair.first << " , " << elapsed_time1.count() << "us." << endl;
 			use_prefix = false;
-			//long long image_size = shm::read_header_from_other_node(server_fd_, image_pair.first);	
+			//long long image_size = shm::read_header_from_other_node(server_fd_[node], image_pair.first);	
       string fn = file_root_ + "/" + image_pair.first;
       long long image_size = getFilesize(fn.c_str());
 	    //outfile << "\tImage size " << image_size << " for " << image_pair.first << endl;
@@ -228,7 +228,7 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
 				}
 				image_label.image.Resize({image_size});
         net_mutex_.lock();
-				int bytes_read = shm::read_from_other_node(server_fd_, image_pair.first, image_label.image.mutable_data<uint8_t>(), image_size);
+				int bytes_read = shm::read_from_other_node(server_fd_[node], image_pair.first, image_label.image.mutable_data<uint8_t>(), image_size);
         //auto finish = Time::now();
         //auto diff = (finish-start);
         //us elapsed_time = std::chrono::duration_cast<us>(diff);	

@@ -53,38 +53,6 @@ struct ImageLabelWrapper {
   int label;
 };
 
-/*
-int initialize_socket(int port, string ip_addr) {
-  int cnct, server_fd;
-  struct sockaddr_in server;
-  struct hostent *hp;
-
-  server.sin_family=AF_INET;
-  server.sin_port=htons(port);
-  server.sin_addr.s_addr=INADDR_ANY;
-  server_fd =socket(AF_INET,SOCK_STREAM,0);
-  if(     server_fd       <       0){
-    cout<<"Error creating socket\n";
-    return -1;
-  }
-
-  cout<<"Socket created for " << port << endl;
-  hp=gethostbyname(ip_addr.c_str());
-  bcopy((char *)hp->h_addr,(char *)&server.sin_addr.s_addr,hp->h_length);
-  cnct=connect(server_fd,(struct sockaddr*)&server,sizeof(server));
-  if(cnct<0){
-    cout<<"Error connecting " << endl;
-    return -1;
-  }
-  cout<<"Connection has been made\n";
-  return server_fd;
-}
-*/
-
-
-
-
-
 
 class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
  public:
@@ -95,20 +63,50 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     : Loader<CPUBackend, ImageLabelWrapper>(spec),
       file_root_(spec.GetArgument<string>("file_root")),
       file_list_(spec.GetArgument<string>("file_list")),
-      node_ip_(spec.GetArgument<string>("node_ip")),
       image_label_pairs_(std::move(image_label_pairs)),
       shuffle_after_epoch_(shuffle_after_epoch),
       current_index_(0),
       current_epoch_(0), 
       caching_done_(false) {
+        if ( (spec.HasArgument("node_ip_list") ^ spec.HasArgument("node_port_list")) == 1)
+          DALI_ENFORCE(1, "node_ip_list and node_port_list must be specified together");
+
+        if (spec.HasArgument("node_ip_list")){
+          node_ip_list_ = spec.GetRepeatedArgument<std::string>("node_ip_list");
+          if (node_ip_list_.size() > 0)
+            dist_mint = true;
+          outfile << "Node IP list = " <<  endl;
+          for (int i=0; i < node_ip_list_.size(); i++)
+            outfile << node_ip_list_[i] << endl;
+        } 
+        if (spec.HasArgument("node_port_list")){
+          node_port_list_ = spec.GetRepeatedArgument<int>("node_port_list");
+          if (node_port_list_.size() > 0)
+            dist_mint = true;
+          outfile << "Node Port list = " <<  endl;
+          for (int i=0; i < node_port_list_.size(); i++)
+            outfile << node_port_list_[i] << endl;
+        }
+
+      DALI_ENFORCE(node_ip_list_.size() == node_port_list_.size(), "Length and port and IP list must be same");
 
       //Init the clients
-      outfile << "Node IP = " << node_ip_ << ", port = " << port_ << endl;
-      if (!node_ip_.empty() && (cache_size_ > 0)) {
-          dist_mint = true;
-          server_fd_ = initialize_socket(port_, node_ip_);
+      if (dist_mint) {
+          DALI_ENFORCE( cache_size_ > 0, "Cache size must be non zero in dist mint");
+          for (unsigned int i = 0; i < node_port_list_.size(); i ++) {
+            if (i == node_id_){
+              shard_port_list_.push_back(0);
+              server_fd_.push_back(0);
+            }
+            else {
+              shard_port_list_.push_back(node_port_list_[i] + shard_id_);
+              outfile << "Node IP = " << node_ip_list_[i] << ", port = " << shard_port_list_[i] << endl;
+              server_fd_.push_back(initialize_socket(shard_port_list_[i], node_ip_list_[i]));
+              outfile << "shard_id = " << shard_id_ << ", dist_mint = " << dist_mint << " server_fd = " << server_fd_[i] << endl;
+            }
+          }
+          DALI_ENFORCE(server_fd_.size() == node_ip_list_.size(), "Error in starting client connection");
       }
-      outfile << "shard_id = " << shard_id_ << ", dist_mint = " << dist_mint << " server_fd = " << server_fd_ << endl;
 
       /*
       * Those options are mutually exclusive as `shuffle_after_epoch` will make every shard looks differently
@@ -139,10 +137,14 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   void ReadSample(ImageLabelWrapper &tensor) override;
   
   ~FileLoader() {
-     if (server_fd_ > 0) {
-         close(server_fd_);
-         shutdown(server_fd_, 0);
-     }
+     if (dist_mint){
+      for (unsigned int i = 0; i < node_port_list_.size(); i++ ){ 
+        if (server_fd_[i] > 0) {
+          close(server_fd_[i]);
+          shutdown(server_fd_[i], 0);
+        }
+      }
+    }
      outfile << "Order of shm cached items : " << endl;
      for(int i=0; i < static_cast<int>(shm_cached_items_.size()); i++)
          outfile << i << " : " << shm_cached_items_[i] << endl;
@@ -180,7 +182,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     }
 
     //if (current_epoch_ == 0)
-		//	image_label_pairs_orig_ = image_label_pairs_;
+    //  image_label_pairs_orig_ = image_label_pairs_;
 
     Reset(true);
     //for (int i = 0; i < static_cast<int>(image_label_pairs_.size()); i++)
@@ -244,17 +246,19 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                    std::iota(cache_list_per_shard.begin(), cache_list_per_shard.end(), shard_start_idx);
                    std::shuffle(cache_list_per_shard.begin(), cache_list_per_shard.end(), gen);
                    cache_list_per_shard.resize(cache_size_);
-				   std::sort (cache_list_per_shard.begin(), cache_list_per_shard.end());
+                   std::sort (cache_list_per_shard.begin(), cache_list_per_shard.end());
                    vector<string> cache_list_per_shard_name;
                    outfile << "For node " << nid <<  " shard : " << sh << endl;
-									 for (int k=0; k < cache_list_per_shard.size(); k++) {
-									   cache_list_per_shard_name.push_back(image_label_pairs_[cache_list_per_shard[k]].first);
+                   for (int k=0; k < cache_list_per_shard.size(); k++) {
+                     cache_list_per_shard_name.push_back(image_label_pairs_[cache_list_per_shard[k]].first);
                      outfile << "\t" << k << " : " << cache_list_per_shard_name[k] << std::endl; 
                    }
                    nid_list.insert(nid_list.end(), cache_list_per_shard_name.begin(), cache_list_per_shard_name.end());
                }
                std::sort (nid_list.begin(), nid_list.end()); 
                shm_cache_index_list_other_nodes[nid] = nid_list;
+               outfile << "Node IP : " << node_ip_list_[nid] << endl;
+               outfile << "TCP Port : " << shard_port_list_[nid] << endl;
            }
        }
        /*for (int nid = 0; nid < num_nodes_; nid ++){
@@ -265,8 +269,6 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
            }
        }*/
 
-       outfile << "Node IP : " << node_ip_ << endl;
-       outfile << "TCP Port : " << port_ << endl;
        //shm_cache_index_list_.resize(cache_size_);
        std::mt19937 gen(shuffle_seed_);
        //std::uniform_int_distribution<int> distr(index_start_, index_end_); 
@@ -277,8 +279,8 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
        shm_cache_index_list_.resize(cache_size_);
        std::sort (shm_cache_index_list_.begin(), shm_cache_index_list_.end());
        vector<string> shm_cache_name_list_;
-			 for (int k=0; k < shm_cache_index_list_.size(); k++)
-				   shm_cache_name_list_.push_back(image_label_pairs_[shm_cache_index_list_[k]].first);
+       for (int k=0; k < shm_cache_index_list_.size(); k++)
+           shm_cache_name_list_.push_back(image_label_pairs_[shm_cache_index_list_[k]].first);
        
 
        outfile << "Index list to cache for this shard : " << endl;
@@ -297,11 +299,16 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_nodes_;
   using Loader<CPUBackend, ImageLabelWrapper>::node_id_;
+  //using Loader<CPUBackend, ImageLabelWrapper>::node_port_list_;
   using Loader<CPUBackend, ImageLabelWrapper>::seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::outfile;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_per_node_;
 
   string file_root_, file_list_, node_ip_;
+  vector<std::string> node_ip_list_;
+  vector<int> node_port_list_;
+  vector<int> shard_port_list_;
+  vector<int> server_fd_;
 
   //A map of file paths, label and a bool that indicates whether cached
   vector<std::pair<string, int>> image_label_pairs_;
@@ -312,8 +319,6 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   bool caching_done_;
   int index_start_;
   int index_end_;
-  int port_ = PORT + shard_id_;
-  int server_fd_ = 0;
   bool dist_mint = false;
   //int num_shards_per_node_ = num_shards_ / num_nodes_;
   //vector<int> current_shards_;

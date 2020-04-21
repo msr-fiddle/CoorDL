@@ -45,6 +45,12 @@ per loader.)code",
 .AddOptionalArg("node_ip",
       R"code(Ip of the other node.)code",
       std::string())
+.AddOptionalArg("node_ip_list",
+      R"code(Ip of the other nodes in node ID order.)code",
+      std::vector<std::string>{})
+.AddOptionalArg("node_port_list",
+      R"code(start port of the other nodes in node ID order.)code",
+      std::vector<int>{})
   .AddParent("LoaderBase");
 
 }  // namespace dali
