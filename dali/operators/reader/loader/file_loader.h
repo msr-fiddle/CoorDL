@@ -146,8 +146,10 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
           shutdown(server_fd_[i], 0);
         }
       }
-      if (prefetcher_running)
-          mint_prefetcher.join();
+      //if (prefetcher_running){
+      //    mint_prefetcher.~thread();
+      //    mint_prefetcher.join();
+      //}
     }
      outfile << "Order of shm cached items : " << endl;
      for(int i=0; i < static_cast<int>(shm_cached_items_.size()); i++)
