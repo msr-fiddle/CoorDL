@@ -229,8 +229,33 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     }
     // If the epoch count is 1 here, it means we have completed
     // epoch 1. SO stop caching beyond this point
-    if (current_epoch_ == 1)
+    if (current_epoch_ == 1){
        caching_done_ = true;
+       if ( num_nodes_ > 1 && cache_size_ > 0) { 
+           // if we have extra items to cache, handle here
+           if (extra_cache_size_ > 0 && dist_mint){
+               outfile << "EXTRA data cache for " << shard_id_ << endl;
+               vector<string> items_not_in_node;
+               for (unsigned int it = 0; it < num_nodes_; it ++){
+                  if (it != node_id_)
+                     items_not_in_node.insert(items_not_in_node.end(), shm_cache_index_list_other_nodes[it].begin(), shm_cache_index_list_other_nodes[it].end());
+               }
+               // Get a random shuffle order at each node so that what is in cache of each node is random
+               // halps balance nodes to remote caches
+               std::mt19937 gen_s(shuffle_seed_ + node_id_);
+               std::shuffle(items_not_in_node.begin(), items_not_in_node.end(), gen_s);
+               outfile << "Items not cached in current node = " << items_not_in_node.size() << endl;
+               Index items_per_shard = items_not_in_node.size()/num_shards_per_node_;
+               outfile << "Extra items required per shard = " << extra_cache_size_ << ", available indexes per shard " << items_per_shard << endl;
+               Index start_idx = (shard_id_ % num_shards_per_node_)*extra_cache_size_;
+               Index end_idx = (shard_id_ % num_shards_per_node_ + 1)*extra_cache_size_;
+               outfile << "Shard " << shard_id_ << " start : " << start_idx << ", end : " << end_idx << endl;
+               mint_prefetcher = std::thread(shm::prefetch_cache, items_not_in_node, start_idx, end_idx, file_root_);
+               prefetcher_running = true;
+           }
+
+        }
+    }
 
     // Create a shuffled list for caching   
     // Sort it so that search becomes easier
@@ -275,27 +300,6 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
                outfile << "TCP Port : " << shard_port_list_[nid] << endl;
            }
 
-           // if we have extra items to cache, handle here
-           if (extra_cache_size_ > 0 && dist_mint){
-               outfile << "EXTRA data cache for " << shard_id_ << endl;
-               vector<string> items_not_in_node;
-               for (unsigned int it = 0; it < num_nodes_; it ++){
-                  if (it != node_id_)
-                     items_not_in_node.insert(items_not_in_node.end(), shm_cache_index_list_other_nodes[it].begin(), shm_cache_index_list_other_nodes[it].end());
-               }
-               // Get a random shuffle order at each node so that what is in cache of each node is random
-               // halps balance nodes to remote caches
-               std::mt19937 gen_s(shuffle_seed_ + node_id_);
-               std::shuffle(items_not_in_node.begin(), items_not_in_node.end(), gen_s);
-               outfile << "Items not cached in current node = " << items_not_in_node.size() << endl;
-               Index items_per_shard = items_not_in_node.size()/num_shards_per_node_;
-               outfile << "Extra items required per shard = " << extra_cache_size_ << ", available indexes per shard " << items_per_shard << endl;
-               Index start_idx = (shard_id_ % num_shards_per_node_)*extra_cache_size_;
-               Index end_idx = (shard_id_ % num_shards_per_node_ + 1)*extra_cache_size_;
-               outfile << "Shard " << shard_id_ << " start : " << start_idx << ", end : " << end_idx << endl;
-               mint_prefetcher = std::thread(shm::prefetch_cache, items_not_in_node, start_idx, end_idx, file_root_);
-               prefetcher_running = true;
-           }
 
            
 
