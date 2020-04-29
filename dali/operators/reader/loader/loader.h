@@ -81,7 +81,7 @@ class Loader {
       num_shards_(options.GetArgument<int>("num_shards")),
       num_nodes_(options.GetArgument<int>("num_nodes")),
       node_id_(options.GetArgument<int>("node_id")),
-      resume_(options.GetArgument<int>("resume")),
+      resume_(options.GetArgument<bool>("resume")),
       //node_port_list_(options.GetRepeatedArgument<int>("node_port_list")),
       copy_read_data_(false),
       read_ahead_(options.GetArgument<bool>("read_ahead")),
