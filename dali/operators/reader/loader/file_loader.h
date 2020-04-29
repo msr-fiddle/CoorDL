@@ -233,7 +233,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     // epoch 1. SO stop caching beyond this point
     if (current_epoch_ == 1){
        caching_done_ = true;
-       if ( num_nodes_ > 1 && cache_size_ > 0) { 
+       if ( num_nodes_ > 1 && cache_size_ > 0 && !resume_) { 
            // if we have extra items to cache, handle here
            if (extra_cache_size_ > 0 && dist_mint){
                outfile << "EXTRA data cache for " << shard_id_ << endl;
@@ -336,6 +336,9 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
 
     current_epoch_++;
 
+    if (resume_)
+        caching_done_ = true;
+
   }
 
   using Loader<CPUBackend, ImageLabelWrapper>::shard_id_;
@@ -344,6 +347,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_nodes_;
   using Loader<CPUBackend, ImageLabelWrapper>::node_id_;
+  using Loader<CPUBackend, ImageLabelWrapper>::resume_;
   //using Loader<CPUBackend, ImageLabelWrapper>::node_port_list_;
   using Loader<CPUBackend, ImageLabelWrapper>::seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::outfile;

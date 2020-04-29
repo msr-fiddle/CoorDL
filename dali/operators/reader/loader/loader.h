@@ -81,6 +81,7 @@ class Loader {
       num_shards_(options.GetArgument<int>("num_shards")),
       num_nodes_(options.GetArgument<int>("num_nodes")),
       node_id_(options.GetArgument<int>("node_id")),
+      resume_(options.GetArgument<int>("resume")),
       //node_port_list_(options.GetRepeatedArgument<int>("node_port_list")),
       copy_read_data_(false),
       read_ahead_(options.GetArgument<bool>("read_ahead")),
@@ -364,6 +365,7 @@ class Loader {
   const int num_shards_;
   const int num_nodes_;
   const int node_id_;
+  const bool resume_;
   //vector<int> node_port_list_;
   std::mutex net_mutex_;
 

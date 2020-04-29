@@ -30,6 +30,8 @@ this parameter is ignored.)code", 1024)
       R"code(Number of physical nodes involved in multi GPU training).)code", 1)
   .AddOptionalArg("node_id",
       R"code(ID of the node in multi GPU training).)code", 0)
+  .AddOptionalArg("resume",
+      R"code(Resume with old cache.)code", false)
   .AddOptionalArg("shard_id",
       R"code(Id of the part to read.)code", 0)
   .AddOptionalArg("cache_size",
