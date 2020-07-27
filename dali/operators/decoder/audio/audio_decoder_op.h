@@ -40,6 +40,7 @@ class AudioDecoderCpu : public Operator<CPUBackend> {
           Operator<Backend>(spec),
           output_type_(spec.GetArgument<DALIDataType>("dtype")),
           downmix_(spec.GetArgument<bool>("downmix")),
+          downsample_size_(spec.GetArgument<int>("downsample_size")),
           use_resampling_(spec.HasArgument("sample_rate") || spec.HasTensorArgument("sample_rate")),
           quality_(spec.GetArgument<float>("quality")) {
     if (use_resampling_) {
@@ -74,7 +75,12 @@ class AudioDecoderCpu : public Operator<CPUBackend> {
   void DecodeBatch(workspace_t<Backend> &ws);
 
   int64_t OutputLength(int64_t in_length, double in_rate, int sample_idx) const {
-    if (use_resampling_) {
+    if (use_resampling_ && downsample_size_ > 0 && in_rate > 0){
+      //std::cout << "Using new out value" << std::endl;
+      return kernels::signal::resampling::resampled_length_cropped(  
+         in_length, in_rate, target_sample_rates_[sample_idx], downsample_size_, scale_);  
+    }
+    else if (use_resampling_) {
       return kernels::signal::resampling::resampled_length(
           in_length, in_rate, target_sample_rates_[sample_idx]);
     } else {
@@ -85,7 +91,10 @@ class AudioDecoderCpu : public Operator<CPUBackend> {
   std::vector<float> target_sample_rates_;
   kernels::signal::resampling::Resampler resampler_;
   DALIDataType output_type_, decode_type_;
-  const bool downmix_ = false, use_resampling_ = false;
+  const bool downmix_ = false;
+  const int downsample_size_ = 0;
+  const int scale_ = 5;
+  const bool use_resampling_ = false;
   const float quality_ = 50.0f;
   std::vector<std::string> files_names_;
   std::vector<AudioMetadata> sample_meta_;

@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/file.h>
 
 #include "posixshmem.h"
 using namespace std;
@@ -27,6 +28,13 @@ using namespace std;
 namespace shm {
 
 const string prefix = "/dev/shm/cache/";  
+
+bool file_exist (const char *filename)
+{
+  struct stat   buffer;   
+  return (stat (filename, &buffer) == 0);
+}
+
 
 string create_name(string path) {
 	std::replace( path.begin(), path.end(), '/', '_');	
@@ -55,11 +63,6 @@ int open_shared_file(const char* path, int flags, mode_t mode) {
 	return fd;
 }
 
-
-void create_directories(string prefix, string name) {
-	
-
-}
 
 
 int try_mkdir(const char* path, int mode){
@@ -97,13 +100,22 @@ int mkdir_path(const char *path, mode_t mode)
 		if (sp != pp) {
 			/* Neither root nor double slash in path */
 			*sp = '\0';
-			status = try_mkdir(copypath, mode);
+			if ((status = try_mkdir(copypath, mode)) < 0){
+          cerr << "Error creating directory " << copypath << endl;
+          return -1;
+      }
 			*sp = '/';
 		}
 		pp = sp + 1;
 	}
-	if (status == 0)
+	if (status == 0){
 		status = try_mkdir(path, mode);
+    if (status < 0){
+        cerr << "Error creating dir " << path << endl;
+        return -1;
+    }
+  }
+    
 	free(copypath);
 	return (status);
 }
@@ -141,8 +153,14 @@ int CacheEntry::create_segment() {
 	// Pass only the dir heirarchy to the function. 
 	// Strip off the file name
 	string dir_path(name_);
-	dir_path = dir_path.substr(0, dir_path.rfind("/"));
-	mkdir_path((shm_path(dir_path, prefix)).c_str(), 0777);
+  if (dir_path.find('/') != string::npos){
+	  dir_path = dir_path.substr(0, dir_path.rfind("/"));
+	  int status = mkdir_path((shm_path(dir_path, prefix)).c_str(), 0777);
+    if (status < 0){
+      cerr << "Error creating path " << shm_path(dir_path, prefix) << endl;
+      return -1;
+    }
+  }
 	
 	int flags = O_CREAT | O_RDWR;
 	int mode = 511;
@@ -150,6 +168,7 @@ int CacheEntry::create_segment() {
 	string shm_path_name_tmp = shm_path(name_ + "-tmp", prefix);
   //cout << "Shm path " << shm_path_name_tmp << endl;
 	fd_ = open_shared_file(shm_path_name_tmp.c_str(), flags, mode);
+  close(fd_);
 	return fd_;
 }
 
@@ -175,6 +194,64 @@ int CacheEntry::attach_segment(){
 }
 
 
+int CacheEntry::put_cache_simple(string from_file){
+  int bytes_to_write = get_file_size(from_file);  
+  string shm_path_name = shm_path(name_, prefix);
+  string shm_path_name_tmp = shm_path(name_+"-tmp", prefix);
+  size_ = bytes_to_write;
+  FILE *source, *target;
+  size_t n, m;
+  unsigned char buff[4096];
+
+  //Open the tmp file holding a lock
+  if ((source = fopen(from_file.c_str(), "rb")) == NULL){
+      cerr << "File open error " << from_file.c_str() << endl;
+      return -1;
+  }
+  
+  if ((target = fopen(shm_path_name_tmp.c_str(), "wb")) == NULL){
+      cerr << "File open error " << shm_path_name_tmp << endl;
+      return -1;
+  }
+  
+  int lock = -1;
+  if((lock = flock(fileno(target), LOCK_EX)) == -1){
+       cerr << "Couldn't lock file" << endl;
+       return -1;
+  }
+  do {
+    n = fread(buff, 1, sizeof buff, source);
+    if (n) m = fwrite(buff, 1, n, target);
+    else   m = 0;
+   } while ((n > 0) && (n == m));
+   if (m) {
+      flock(fileno(target), LOCK_UN);
+      perror("copy");
+      return -1;
+   }
+  int release = flock(fileno(target), LOCK_UN);
+  if (release < 0){
+     cerr << "Error unlocking file" << endl;
+     return -1;
+  }
+
+  fclose(source);
+  fclose(target);
+  int ret = -1;
+  //rename the file
+  
+  if ((ret = rename(shm_path_name_tmp.c_str(), shm_path_name.c_str())) < 0){
+    if (file_exist(shm_path_name.c_str()))
+        return size_;
+    else{
+        cerr << "Caching rename failed : " << strerror(errno) << endl;
+        return -1;
+    }
+  }
+
+  return size_;
+}
+      
 
 int CacheEntry::put_cache(string from_file) {
 	int bytes_to_write = get_file_size(from_file);
