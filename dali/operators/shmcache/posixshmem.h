@@ -20,6 +20,30 @@ namespace shm{
 
 extern const std::string prefix;  
 
+/* Reads one sample from a remote node whose tcp port is 
+ * given by the open server_fd.
+ * Returns the number of bytes read
+ * This has to be called after validating that the sample
+ * exists in the node you're requesting. The GET request is in this func
+ */
+int read_from_other_node(int server_fd, std::string fname, uint8_t * buf, unsigned long msg_size);
+
+/* Sends a GET request and reads header - file size from remote node
+ */
+int read_header_from_other_node(int server_fd, std::string fname);
+
+/* After a header read, reads body of the file from cache*/
+int read_file_from_other_node(int server_fd, std::string fname, uint8_t * buf, unsigned long msg_size);
+
+/* Returns the node where this sample is cached in memory
+ * If not cached anywhere and needs to be fetched from one's own
+ * disk, then returns -1
+ */
+int is_cached_in_other_node(std::vector<std::vector<std::string>> &cache_lists, std::string sample_name, int node_id);
+
+
+void prefetch_cache(std::vector<std::string> items_not_in_node, int start_idx, int end_idx, std::string file_root);
+
 class CacheEntry {
     public:
 
@@ -65,6 +89,7 @@ class CacheEntry {
 	 * unmaps on exit.
 	 */
 	int put_cache(std::string from_file);
+	int put_cache_simple(std::string from_file);
 
 	/* This function returns the shared memory path
 	 * to this segment. This path can be 

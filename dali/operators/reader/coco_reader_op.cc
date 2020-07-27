@@ -33,6 +33,9 @@ Tensor (``m * [x, y, w, h]`` or ``m * [left, top, right, bottom]``) and labels a
   .AddOptionalArg("shuffle_after_epoch",
       R"code(If true, reader shuffles whole dataset after each epoch.)code",
       false)
+  .AddOptionalArg("cache_size",
+      R"code(Number of images to cache per DL.)code",
+      0)
   .AddArg("file_root",
       R"code(Path to a directory containing data files.)code",
       DALI_STRING)

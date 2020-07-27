@@ -41,6 +41,9 @@ This operator produces two outputs:
   .AddOptionalArg("downmix",
           "If True, downmix all input channels to mono. "
           "If downmixing is turned on, decoder will produce always 1-D output", false)
+  .AddOptionalArg("downsample_size",
+          "If True, downmix all input channels to mono. "
+          "If downmixing is turned on, decoder will produce always 1-D output", 0)
   .AddOptionalArg("dtype",
           "Type of the output data. Supports types: `INT16`, `INT32`, `FLOAT`", DALI_FLOAT);
 
@@ -136,8 +139,12 @@ AudioDecoderCpu::DecodeSample(const TensorView<StorageCPU, OutputType, DynamicDi
         float *downmixed = tmp_buf.data() + meta.length * meta.channels;
         assert(downmixed + meta.length <= tmp_buf.data() + tmp_buf.size());
         kernels::signal::Downmix(downmixed, tmp_buf.data(), meta.length, meta.channels);
-        resampler_.Resample(audio.data, 0, audio.shape[0], output_rate,
-                            downmixed, meta.length, meta.sample_rate);
+        //std::cout << "Audio shape before sampling : " << audio.shape[0] << std::endl;
+        //int change_rate = meta.sample_rate/output_rate;
+        //audio.shape[0] = int(downsample_size_/change_rate);
+        resampler_.Resample_Crop(audio.data, 0, audio.shape[0], output_rate,
+                            downmixed, meta.length, meta.sample_rate, downsample_size_, scale_);
+        //std::cout << "Audio shape after sampling : " << audio.shape[0] << std::endl;
       } else {
         // downmix only
         kernels::signal::Downmix(audio.data, tmp_buf.data(), meta.length, meta.channels);
