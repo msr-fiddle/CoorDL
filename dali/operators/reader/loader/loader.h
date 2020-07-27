@@ -28,11 +28,23 @@
 #include <fstream>
 #include <cstring>
 
+//For networl client
+#include<sys/types.h>  
+#include<sys/socket.h>   
+#include<netinet/in.h> 
+#include<netdb.h>  
+#include<sys/uio.h> 
+#include<sys/syscall.h> 
+#include<unistd.h> 
+#include<fcntl.h>  
+#include "commands.h" 
+
 #include "dali/core/common.h"
 #include "dali/core/error_handling.h"
 #include "dali/pipeline/operator/op_spec.h"
 #include "dali/pipeline/data/tensor.h"
 #include "dali/operators/decoder/cache/image_cache_factory.h"
+//#define PORT 5555
 
 namespace dali {
 
@@ -42,6 +54,8 @@ DLL_PUBLIC size_t start_index(const size_t shard_id,
 
 DLL_PUBLIC Index num_samples(const size_t shard_num,
                              const size_t size);
+
+DLL_PUBLIC int initialize_socket(int port, std::string ip_addr);
 /**
  * @brief Base class for Loaders, responsible for reading samples from resource of some kind
  *        into memory.
@@ -61,10 +75,14 @@ class Loader {
                           * options.GetArgument<int>("batch_size")),
       tensor_init_bytes_(options.GetArgument<int>("tensor_init_bytes")),
       seed_(options.GetArgument<Index>("seed")),
-      cache_size_(options.GetArgument<int>("cache_size")),
+      cache_size_orig_(options.GetArgument<int>("cache_size")),
       shuffle_seed_(options.GetArgument<int>("shuffle_seed")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
+      num_nodes_(options.GetArgument<int>("num_nodes")),
+      node_id_(options.GetArgument<int>("node_id")),
+      resume_(options.GetArgument<bool>("resume")),
+      //node_port_list_(options.GetRepeatedArgument<int>("node_port_list")),
       copy_read_data_(false),
       read_ahead_(options.GetArgument<bool>("read_ahead")),
       stick_to_shard_(options.GetArgument<bool>("stick_to_shard")),
@@ -79,7 +97,7 @@ class Loader {
     DALI_ENFORCE(num_shards_ > shard_id_, "num_shards needs to be greater than shard_id");
     // initialize a random distribution -- this will be
     // used to pick from our sample buffer
-    string ofname = to_string(shard_id_) + "-" + to_string(cache_size_) + ".log";
+    string ofname = to_string(shard_id_) + "-" + to_string(cache_size_orig_) + ".log";
     outfile.open(ofname);
     std::seed_seq seq({seed_});
     e_ = std::default_random_engine(seq);
@@ -337,7 +355,7 @@ class Loader {
   std::mutex empty_tensors_mutex_;
 
   // caching
-  const int cache_size_;
+  const int cache_size_orig_;
 
   //shuffle seed
   const int shuffle_seed_;
@@ -345,6 +363,11 @@ class Loader {
   // sharding
   const int shard_id_;
   const int num_shards_;
+  const int num_nodes_;
+  const int node_id_;
+  const bool resume_;
+  //vector<int> node_port_list_;
+  std::mutex net_mutex_;
 
   // if read data need to be copied or can be just shared with tensor
   bool copy_read_data_;
@@ -366,7 +389,7 @@ class Loader {
   bool lazy_init_;
   bool loading_flag_;
 
-  // Image cache
+  // Image cachen
   std::once_flag fetch_cache_;
   std::shared_ptr<ImageCache> cache_;
 
@@ -388,6 +411,7 @@ class Loader {
   };
 
   std::deque<ShardBoundaries> shards_;
+  const int num_shards_per_node_ = num_shards_ / num_nodes_;
 };
 
 template<typename T, typename... Args>

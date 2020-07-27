@@ -26,6 +26,12 @@ to sequentially read data and then randomly sample it to form a batch.)code", fa
 this parameter is ignored.)code", 1024)
   .AddOptionalArg("num_shards",
       R"code(Partition the data into this many parts (used for multiGPU training).)code", 1)
+  .AddOptionalArg("num_nodes",
+      R"code(Number of physical nodes involved in multi GPU training).)code", 1)
+  .AddOptionalArg("node_id",
+      R"code(ID of the node in multi GPU training).)code", 0)
+  .AddOptionalArg("resume",
+      R"code(Resume with old cache.)code", false)
   .AddOptionalArg("shard_id",
       R"code(Id of the part to read.)code", 0)
   .AddOptionalArg("cache_size",
@@ -63,9 +69,59 @@ size_t start_index(const size_t shard_id,
   return size * shard_id / shard_num;
 }
 
+
+size_t start_index_for_node(const size_t node_id,
+                   const size_t num_nodes,
+                   const size_t size) {
+  return size * node_id / num_nodes;
+}
+
+
 Index num_samples(const size_t shard_num,
                   const size_t size) {
   return static_cast<Index>(std::ceil(size * 1.0 / shard_num));
 }
+
+int initialize_socket(int port, string ip_addr) {
+  int cnct, server_fd;
+  struct sockaddr_in server;
+  struct hostent *hp;
+
+  server.sin_family=AF_INET;
+  server.sin_port=htons(port);
+  server.sin_addr.s_addr=INADDR_ANY;
+  server_fd =socket(AF_INET,SOCK_STREAM,0);
+  if(     server_fd       <       0){
+    cout<<"Error creating socket\n";
+    return -1;
+  }
+
+  cout<< " Socket created for " << port << endl;
+
+  if (!set_tcp_nodelay(server_fd))
+    return -1;
+
+  //if (!set_recv_window(server_fd, 80000))
+  //  return -1;
+
+  //if (!set_send_window(server_fd, 80000))
+  //  return -1;
+
+
+  hp=gethostbyname(ip_addr.c_str());
+  bcopy((char *)hp->h_addr,(char *)&server.sin_addr.s_addr,hp->h_length);
+  cnct=connect(server_fd,(struct sockaddr*)&server,sizeof(server));
+  if(cnct<0){    
+    cout<<"Error connecting " << endl;    
+    return -1;  
+  }
+
+
+  print_socket_options (server_fd);
+
+  cout<<"Connection has been made for " << ip_addr  << " : " << port << endl;
+  return server_fd;
+}
+
 
 }  // namespace dali
