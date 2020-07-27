@@ -30,6 +30,8 @@ this parameter is ignored.)code", 1024)
       R"code(Id of the part to read.)code", 0)
   .AddOptionalArg("cache_size",
       R"code(Number of items to cache for this loader.)code", 0)
+  .AddOptionalArg("shuffle_seed",
+      R"code(Shuffle the initial dataset metadata)code", 0)
   .AddOptionalArg("tensor_init_bytes",
       R"code(Hint for how much memory to allocate per image.)code", 1048576)
   .AddOptionalArg("stick_to_shard",

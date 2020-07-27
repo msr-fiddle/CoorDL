@@ -95,6 +95,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
   Index SizeImpl() override;
 
   void PrepareMetadataImpl() override {
+    std::cout << "Num Shards:" << num_shards_ << "\nShardID:" << shard_id_ << "\nShuffle seed:"<< kDaliDataloaderSeed + shuffle_seed_ << std::endl;
     if (image_label_pairs_.empty()) {
       if (file_list_ == "") {
         image_label_pairs_ = filesystem::traverse_directories(file_root_);
@@ -117,7 +118,7 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     if (shuffle_) {
       // seeded with hardcoded value to get
       // the same sequence on every shard
-      std::mt19937 g(kDaliDataloaderSeed);
+      std::mt19937 g(kDaliDataloaderSeed + shuffle_seed_);
       std::shuffle(image_label_pairs_.begin(), image_label_pairs_.end(), g);
     }
     Reset(true);
@@ -172,12 +173,13 @@ class FileLoader : public Loader<CPUBackend, ImageLabelWrapper> {
     current_epoch_++;
 
     if (shuffle_after_epoch_) {
-      std::mt19937 g(kDaliDataloaderSeed + current_epoch_);
+      std::mt19937 g(kDaliDataloaderSeed + shuffle_seed_ + current_epoch_);
       std::shuffle(image_label_pairs_.begin(), image_label_pairs_.end(), g);
     }
   }
 
   using Loader<CPUBackend, ImageLabelWrapper>::shard_id_;
+  using Loader<CPUBackend, ImageLabelWrapper>::shuffle_seed_;
   using Loader<CPUBackend, ImageLabelWrapper>::cache_size_;
   using Loader<CPUBackend, ImageLabelWrapper>::num_shards_;
   using Loader<CPUBackend, ImageLabelWrapper>::seed_;

@@ -173,9 +173,9 @@ void FileLoader::ReadSample(ImageLabelWrapper &image_label) {
   // check if cached
   // Change this to be parameter. Hardcoded for now
   std::string prefix;
-  if (is_cached(image_pair.first)){
+  if (caching_done_ && is_cached(image_pair.first)){
     prefix = "/dev/shm/cache";
-    //outfile << "Got cached value for " << image_pair.first << endl;
+    outfile << "Got cached value for " << image_pair.first << endl;
   }
   else
     prefix = file_root_;

@@ -62,6 +62,7 @@ class Loader {
       tensor_init_bytes_(options.GetArgument<int>("tensor_init_bytes")),
       seed_(options.GetArgument<Index>("seed")),
       cache_size_(options.GetArgument<int>("cache_size")),
+      shuffle_seed_(options.GetArgument<int>("shuffle_seed")),
       shard_id_(options.GetArgument<int>("shard_id")),
       num_shards_(options.GetArgument<int>("num_shards")),
       copy_read_data_(false),
@@ -337,6 +338,9 @@ class Loader {
 
   // caching
   const int cache_size_;
+
+  //shuffle seed
+  const int shuffle_seed_;
 
   // sharding
   const int shard_id_;
