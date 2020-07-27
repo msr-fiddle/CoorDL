@@ -1,0 +1,27 @@
+ARG TF_CUSTOM_OP_BUILDER_IMAGE
+FROM ${TF_CUSTOM_OP_BUILDER_IMAGE}
+
+WORKDIR /opt/dali
+
+ARG NVIDIA_DALI_BUILD_FLAVOR
+ENV NVIDIA_DALI_BUILD_FLAVOR=${NVIDIA_DALI_BUILD_FLAVOR}
+ARG GIT_SHA
+ENV GIT_SHA=${GIT_SHA}
+ARG DALI_TIMESTAMP
+ENV DALI_TIMESTAMP=${DALI_TIMESTAMP}
+ARG NVIDIA_BUILD_ID
+ENV NVIDIA_BUILD_ID ${NVIDIA_BUILD_ID:-0}
+
+RUN mkdir /dali_tf_sdist && chmod 0777 /dali_tf_sdist
+
+COPY Acknowledgements.txt .
+COPY COPYRIGHT .
+COPY LICENSE .
+COPY VERSION .
+COPY cmake ./cmake
+COPY dali_tf_plugin ./dali_tf_plugin
+
+COPY dali_tf_plugin/whl whl
+RUN pip install whl/*cp${PYV}*.whl && rm -rf whl
+
+WORKDIR /opt/dali/dali_tf_plugin

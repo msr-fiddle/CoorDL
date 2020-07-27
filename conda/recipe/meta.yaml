@@ -1,0 +1,83 @@
+# (C) Copyright IBM Corp. 2019. All Rights Reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+package:
+  name: dali
+  version: {{ GIT_DESCRIBE_TAG | replace("-","_") }}.{{ GIT_BUILD_STR }}
+
+source:
+  # Beware: Only commited files are used
+  git_url: ../..
+
+build:
+  script_env:
+   - CUDA_TARGET_ARCHS
+   - CMAKE_BUILD_TYPE
+   - BUILD_TEST
+   - BUILD_BENCHMARK
+   - BUILD_NVTX
+   - BUILD_PYTHON
+   - BUILD_LMDB
+   - BUILD_JPEG_TURBO
+   - BUILD_NVJPEG
+   - BUILD_LIBTIFF
+   - BUILD_NVOF
+   - BUILD_NVDEC
+   - BUILD_LIBSND
+   - BUILD_NVML
+   - BUILD_FFTS
+   - VERBOSE_LOGS
+   - WERROR
+   - BUILD_WITH_ASAN
+   - NVIDIA_BUILD_ID
+   - GIT_SHA
+   - DALI_TIMESTAMP
+   - NVIDIA_DALI_BUILD_FLAVOR
+   - LD_LIBRARY_PATH
+  number: 0
+  string: py{{ python | replace(".","") }}
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx')}}
+    - pkg-config >=0.29.2
+    - cmake >=3.12.2
+    - make >=4.2.1
+  host:
+    - python
+    - future >=0.17.1
+    - protobuf >=3.11.2
+    - libjpeg-turbo >=1.5
+    - ffmpeg >=4.1
+    - tensorflow-gpu
+    - libopencv >=3.4.1
+    - opencv >=3.4.1
+    - boost >=1.67
+    - lmdb >=0.9.22
+    - libtiff >=4.0
+    - libsndfile >=1.0.28
+  run:
+    - python
+    - future >=0.17.1
+    - protobuf >=3.11.2
+    - libjpeg-turbo >=1.5
+    - ffmpeg >=4.1
+    - tensorflow-gpu
+    - libopencv >=3.4.1
+    - opencv >=3.4.1
+    - lmdb >=0.9.22
+    - libtiff >=4.0
+    - libsndfile >=1.0.28

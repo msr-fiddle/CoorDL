@@ -1,0 +1,18 @@
+ARG BUILD_IMAGE_NAME
+ARG CUDA_IMAGE_NAME=fiddlev3.azurecr.io/apex_py36_cu10_pytorch:latest
+FROM ${BUILD_IMAGE_NAME} AS builder
+FROM ${CUDA_IMAGE_NAME}
+
+ARG PYVER=3.6
+ENV PYVER=${PYVER}
+ARG PYV=36
+ENV PYV=${PYV}
+
+ENV PYTHONIOENCODING utf-8
+ENV LC_ALL C.UTF-8
+
+COPY --from=builder /wheelhouse/nvidia_dali-*${PYV}-* /opt/dali/
+#COPY --from=builder /wheelhouse/nvidia-dali-tf-plugin-*.tar.gz /opt/dali/
+
+RUN pip install /opt/dali/*.whl
+#RUN pip show tensorflow-gpu && pip install /opt/dali/*.tar.gz || true
