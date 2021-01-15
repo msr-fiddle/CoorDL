@@ -1,5 +1,5 @@
 ARG BUILD_IMAGE_NAME
-ARG CUDA_IMAGE_NAME=fiddlev3.azurecr.io/apex_py36_cu10_pytorch:latest
+ARG CUDA_IMAGE_NAME=base_image
 FROM ${BUILD_IMAGE_NAME} AS builder
 FROM ${CUDA_IMAGE_NAME}
 
