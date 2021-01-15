@@ -1,6 +1,6 @@
 # Coordinated Data Loader : CoorDL
 
-This repository contains the source code implementation of a part of the VLDB'21 paper "Analyzing and Mitigating Data Stalls in DNN Training". This work was done as part of Microsoft Research's Project Fiddle. This source code is available under the MIT License.
+This repository contains the source code implementation of a part of the VLDB'21 paper "Analyzing and Mitigating Data Stalls in DNN Training". This work was done as part of Microsoft Research's [Project Fiddle](https://www.microsoft.com/en-us/research/project/fiddle/). This source code is available under the MIT License.
 
 CoorDL is built as an extension to NVIDIA's DALI data loading library to demonstrate the effectiveness of three new techniques to mitigate data stalls in DNN training; MinIO caching, partitioned caching, and coordinated data pre-processing. The main repo for this work can be found [here](https://github.com/msr-fiddle/ds_analyzer)
 
