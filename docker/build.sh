@@ -5,7 +5,7 @@ a build environment
 
 To change build configuration please export appropriate env variables (for exact meaning please check the README):
 PYVER=[default 3.6]
-CUDA_VERSION=[default 10, accepts also 9]
+CUDA_VERSION=[default 11, accepts also 10]
 NVIDIA_BUILD_ID=[default 12345]
 CREATE_WHL=[default YES]
 CREATE_RUNNER=[default NO]
@@ -15,7 +15,7 @@ DALI_BUILD_FLAVOR=[default is empty]
 CMAKE_BUILD_TYPE=[default is Release]
 BUILD_INHOST=[create build dir with object outside docker, just mount it as a volume, default is YES]
 REBUILD_BUILDERS=[default is NO]
-REBUILD_MANYLINUX=[default is NO]
+REBUILD_BUILDERS_2=[default is NO]
 DALI_BUILD_DIR=[default is build-docker-\${CMAKE_BUILD_TYPE}-\${PYV}-\${CUDA_VERSION}]
 ARCH=[default is x86_64]
 WHL_PLATFORM_NAME=[default is manylinux1_x86_64]
@@ -44,9 +44,9 @@ export CUDA_VERSION=${CUDA_VERSION:-10}
 
 if [ "${CUDA_VERSION%%\.*}" ]
 then
-  if [ $CUDA_VERSION != "9" ] && [ $CUDA_VERSION != "10" ]
+  if [ $CUDA_VERSION != "10" ] && [ $CUDA_VERSION != "11" ]
   then
-      echo "Wrong CUDA_VERSION=$CUDA_VERSION provided. Only 9 and 10 are supported"
+      echo "Wrong CUDA_VERSION=$CUDA_VERSION provided. Only 10 and 11 are supported"
       exit 1
   fi
 else
@@ -63,13 +63,13 @@ export DALI_BUILD_FLAVOR=${DALI_BUILD_FLAVOR}
 export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
 export BUILD_INHOST=${BUILD_INHOST:-YES}
 export REBUILD_BUILDERS=${REBUILD_BUILDERS:-NO}
-export REBUILD_MANYLINUX=${REBUILD_MANYLINUX:-NO}
+export REBUILD_BUILDERS_2=${REBUILD_BUILDERS_2:-NO}
 export BUILD_TF_PLUGIN=${BUILD_TF_PLUGIN:-NO}
 export PREBUILD_TF_PLUGINS=${PREBUILD_TF_PLUGINS:-YES}
 export DALI_BUILD_DIR=${DALI_BUILD_DIR:-build-docker-${CMAKE_BUILD_TYPE}-${PYV}-${CUDA_VERSION}}_${ARCH}
-export WHL_PLATFORM_NAME=${WHL_PLATFORM_NAME:-manylinux1_x86_64}
+export WHL_PLATFORM_NAME=${WHL_PLATFORM_NAME:-manylinux2014_x86_64}
 #################################
-export BASE_NAME=manylinux3_${ARCH}
+export BASE_NAME=quay.io/pypa/manylinux2014_${ARCH}
 export DEPS_IMAGE=nvidia/dali:cu${CUDA_VERSION}_${ARCH}.deps
 export CUDA_DEPS_IMAGE=nvidia/dali:cuda${CUDA_VERSION}_${ARCH}.toolkit
 export BUILDER=nvidia/dali:py${PYV}_cu${CUDA_VERSION}_${ARCH}.build
@@ -86,28 +86,20 @@ export DALI_TIMESTAMP=$(date +%Y%m%d)
 
 set -o errexit
 
-# build manylinux3 if needed
-if [[ "$REBUILD_MANYLINUX" != "NO" || "$(docker images -q ${BASE_NAME} 2> /dev/null)" == "" ]]; then
-    pushd ../third_party/manylinux/
-    git checkout 96b47a25673b33c728e49099a3a6b1bf503a18c2 || echo -e "Did you forget to \`git clone --recursive\`? Try this:\n" \
-                                                                    "  git submodule sync --recursive && \n" \
-                                                                    "  git submodule update --init --recursive && \n"
-    git am ../../docker/0001-An-approximate-manylinux3_${ARCH}.patch
-    PLATFORM=$(uname -m) TRAVIS_COMMIT=latest ./build.sh
-    popd
-fi
-
 pushd ../
 # build deps image if needed
 if [[ "$REBUILD_BUILDERS" != "NO" || "$(docker images -q ${DEPS_IMAGE} 2> /dev/null)" == "" || "$(docker images -q ${CUDA_DEPS_IMAGE} 2> /dev/null)" == "" ]]; then
     echo "Build deps: " ${DEPS_IMAGE}
+    #docker build --no-cache -t ${CUDA_DEPS_IMAGE} -f docker/Dockerfile.cuda${CUDA_VERSION}.deps .
+    #docker build --no-cache -t ${DEPS_IMAGE} --build-arg "FROM_IMAGE_NAME"=${BASE_NAME} --build-arg "CUDA_IMAGE=${CUDA_DEPS_IMAGE}" -f docker/Dockerfile.deps .
     docker build -t ${CUDA_DEPS_IMAGE} -f docker/Dockerfile.cuda${CUDA_VERSION}.deps .
     docker build -t ${DEPS_IMAGE} --build-arg "FROM_IMAGE_NAME"=${BASE_NAME} --build-arg "CUDA_IMAGE=${CUDA_DEPS_IMAGE}" -f docker/Dockerfile.deps .
 fi
 
 # build builder image if needed
-if [[ "$REBUILD_BUILDERS" != "NO" || "$(docker images -q ${BUILDER} 2> /dev/null)" == "" ]]; then
+if [[ "$REBUILD_BUILDERS_2" != "NO" || "$(docker images -q ${BUILDER} 2> /dev/null)" == "" ]]; then
     echo "Build light image:" ${BUILDER}
+    #docker build --no-cache -t ${BUILDER} --build-arg "DEPS_IMAGE_NAME=${DEPS_IMAGE}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" --build-arg "NVIDIA_BUILD_ID=${NVIDIA_BUILD_ID}" \
     docker build -t ${BUILDER} --build-arg "DEPS_IMAGE_NAME=${DEPS_IMAGE}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" --build-arg "NVIDIA_BUILD_ID=${NVIDIA_BUILD_ID}" \
                                --build-arg "NVIDIA_DALI_BUILD_FLAVOR=${DALI_BUILD_FLAVOR}" --build-arg "GIT_SHA=${GIT_SHA}" --build-arg "DALI_TIMESTAMP=${DALI_TIMESTAMP}" \
                                --build-arg "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" --target builder -f docker/Dockerfile .
@@ -153,6 +145,7 @@ if [ "$BUILD_INHOST" == "YES" ]; then
                                         BUILD_LIBSND=${BUILD_LIBSND}              \
                                         BUILD_NVML=${BUILD_NVML}                  \
                                         BUILD_FFTS=${BUILD_FFTS}                  \
+                                        STRIP_BINARY=${STRIP_BINARY}              \
                                         VERBOSE_LOGS=${VERBOSE_LOGS}              \
                                         WERROR=${WERROR}                          \
                                         BUILD_WITH_ASAN=${BUILD_WITH_ASAN}        \
@@ -185,6 +178,7 @@ else
                                    --build-arg "BUILD_LIBSND=${BUILD_LIBSND}"              \
                                    --build-arg "BUILD_NVML=${BUILD_NVML}"                  \
                                    --build-arg "BUILD_FFTS=${BUILD_FFTS}"                  \
+                                   --build_arg "STRIP_BINARY=${STRIP_BINARY}"              \
                                    --build-arg "VERBOSE_LOGS=${VERBOSE_LOGS}"              \
                                    --build-arg "WERROR=${WERROR}"                          \
                                    --build-arg "BUILD_WITH_ASAN=${BUILD_WITH_ASAN}"        \
@@ -221,13 +215,8 @@ if [ "$CREATE_RUNNER" == "YES" ]; then
         docker build -t ${BUILDER_TMP} -f ${DOCKER_FILE_TMP} .
         rm ${DOCKER_FILE_TMP}
     fi
-
-    if [ ! -f Docker_run_cuda_pytorch ]; then
-        ln -s docker/Docker_run_cuda_pytorch Docker_run_cuda_pytorch
-    fi
-    #export CUDA_IMAGE_NAME_PYTORCH="nvcr.io/nvidia/pytorch:19.05-py3"
-    export CUDA_IMAGE_NAME_PYTORCH="base_image"
-    docker build -t ${RUN_IMG} --build-arg "BUILD_IMAGE_NAME=${BUILDER_TMP}" --build-arg "CUDA_IMAGE_NAME=${CUDA_IMAGE_NAME_PYTORCH}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" -f Docker_run_cuda_pytorch .
+    pwd
+    docker build -t ${RUN_IMG} --build-arg "BUILD_IMAGE_NAME=${BUILDER_TMP}" --build-arg "CUDA_IMAGE_NAME=${CUDA_IMAGE_NAME}" --build-arg "PYVER=${PYVER}" --build-arg "PYV=${PYV}" -f docker/Docker_run_cuda .
     # remove scratch image
     if [ "$BUILD_INHOST" = "YES" ]; then
         docker rmi ${BUILDER_TMP}
@@ -305,9 +294,11 @@ if [[ "$CREATE_WHL" == "YES" && "$BUILD_TF_PLUGIN" = "YES" ]]; then
            --build-arg "DALI_TIMESTAMP=${DALI_TIMESTAMP}" \
            . ;
     export DALI_TF_BUILDER_CONTAINER_SDIST="extract_dali_tf_sdist"
-    nvidia-docker run --name "${DALI_TF_BUILDER_CONTAINER_SDIST}" "${BUILDER_DALI_TF_SDIST}" /bin/bash -c 'cd /opt/dali/dali_tf_plugin && source make_dali_tf_sdist.sh'
+    nvidia-docker run --name "${DALI_TF_BUILDER_CONTAINER_SDIST}" "${BUILDER_DALI_TF_SDIST}" /bin/bash -c \
+        'cd /opt/dali/dali_tf_plugin && source make_dali_tf_sdist.sh'
     docker cp "${DALI_TF_BUILDER_CONTAINER_SDIST}:/dali_tf_sdist/." "dali_tf_sdist"
     cp dali_tf_sdist/*.tar.gz wheelhouse/
+    cp dali_tf_sdist/dummy/*.tar.gz wheelhouse/dummy || true
     docker rm -f "${DALI_TF_BUILDER_CONTAINER_SDIST}"
 
     rm -rf dali_tf_plugin/whl

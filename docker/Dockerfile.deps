@@ -1,32 +1,29 @@
 #########################################################################################
 ##  Stage 1: build DALI dependencies
-##     DALI is based on "manylinux3", which is our modification of manylinux1
-##     (CentOS 5 derivative). For building this docker image, manylinux3 has to
-##     be manually built. It is also possible to use other distros, but we don't
-##     officially support them.
-##     For instructions, how to build manylinux3 with our patch see:
-##     //DALI/docker/build.sh#L16
+##     DALI is based on "manylinux2014", official page https://github.com/pypa/manylinux
 #########################################################################################
-ARG FROM_IMAGE_NAME
+ARG FROM_IMAGE_NAME=quay.io/pypa/manylinux2014_x86_64
 ARG CUDA_IMAGE
 FROM ${CUDA_IMAGE} as cuda
 FROM ${FROM_IMAGE_NAME}
 
 # Install yum Dependencies
-RUN yum install -y zip wget yasm doxygen graphviz zlib-devel
+RUN yum install -y zip wget yasm doxygen graphviz zlib-devel gettext xz openssl
+
+# add devtoolset-7 to paths
+ENV PATH=/opt/rh/devtoolset-7/root/usr/bin:$PATH \
+    LD_LIBRARY_PATH=/opt/rh/devtoolset-7/root/usr/lib64:/opt/rh/devtoolset-7/root/usr/lib:/opt/rh/devtoolset-7/root/usr/lib64/dyninst:/opt/rh/devtoolset-7/root/usr/lib/dynin:$LD_LIBRARY_PATH
+
+# CUDA 10 doesn't support gcc > 7 so install 7 and remove other
+RUN yum remove -y devtoolset* && \
+    yum install -y devtoolset-7
 
 # Don't want the short-unicode version for Python 2.7
 RUN rm -f /opt/python/cp27-cp27m
 
-# Boost
-RUN BOOST_VERSION=1.66.0 && \
-    cd /usr/local && \
-    curl -L https://dl.bintray.com/boostorg/release/1.66.0/source/boost_${BOOST_VERSION//./_}.tar.gz | tar -xzf - && \
-    ln -s ../boost_${BOOST_VERSION//./_}/boost include/boost
-
 # CMake
-RUN CMAKE_VERSION=3.11 && \
-    CMAKE_BUILD=3.11.0 && \
+RUN CMAKE_VERSION=3.13 && \
+    CMAKE_BUILD=3.13.5 && \
     curl -L https://cmake.org/files/v${CMAKE_VERSION}/cmake-${CMAKE_BUILD}.tar.gz | tar -xzf - && \
     cd /cmake-${CMAKE_BUILD} && \
     ./bootstrap --parallel=$(grep ^processor /proc/cpuinfo | wc -l) && \
@@ -53,7 +50,7 @@ RUN LMDB_VERSION=0.9.22 && \
     rm -rf /lmdb
 
 # libjpeg-turbo
-RUN JPEG_TURBO_VERSION=2.0.2 && \
+RUN JPEG_TURBO_VERSION=2.0.4 && \
     curl -L https://github.com/libjpeg-turbo/libjpeg-turbo/archive/${JPEG_TURBO_VERSION}.tar.gz | tar -xzf - && \
     cd libjpeg-turbo-${JPEG_TURBO_VERSION} && \
     cmake -G"Unix Makefiles" -DENABLE_SHARED=TRUE -DCMAKE_INSTALL_PREFIX=/usr/local . 2>&1 >/dev/null && \
@@ -63,7 +60,7 @@ RUN JPEG_TURBO_VERSION=2.0.2 && \
 # libtiff
 # Note: libtiff should be built with support for zlib. If running this step alone on a custom
 #       system, zlib should be installed first
-RUN LIBTIFF_VERSION=4.0.10 && \
+RUN LIBTIFF_VERSION=4.1.0 && \
     cd /tmp && \
     curl -L http://download.osgeo.org/libtiff/tiff-${LIBTIFF_VERSION}.tar.gz | tar -xzf - && \
     cd tiff-${LIBTIFF_VERSION} && \
@@ -75,7 +72,7 @@ RUN LIBTIFF_VERSION=4.0.10 && \
     rm -rf /tmp/tiff-${LIBTIFF_VERSION}
 
 # OpenCV
-RUN OPENCV_VERSION=3.4.3 && \
+RUN OPENCV_VERSION=4.3.0 && \
     curl -L https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz | tar -xzf - && \
     cd /opencv-${OPENCV_VERSION} && mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -90,16 +87,16 @@ RUN OPENCV_VERSION=3.4.3 && \
     rm -rf /opencv-${OPENCV_VERSION}
 
 # Clang
-RUN CLANG_VERSION=6.0.1 && \
+RUN CLANG_VERSION=8.0.1 && \
     cd /usr/local && \
-    wget http://releases.llvm.org/${CLANG_VERSION}/clang+llvm-${CLANG_VERSION}-x86_64-linux-sles11.3.tar.xz && \
+    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VERSION}/clang+llvm-${CLANG_VERSION}-x86_64-linux-sles11.3.tar.xz && \
     tar -xJf clang+llvm-${CLANG_VERSION}-x86_64-linux-sles11.3.tar.xz --strip 1 && \
     rm clang+llvm-${CLANG_VERSION}-x86_64-linux-sles11.3.tar.xz
 
 ENV NVIDIA_DRIVER_CAPABILITIES=video,compute,utility
 
 # FFmpeg
-RUN FFMPEG_VERSION=4.2.1 && \
+RUN FFMPEG_VERSION=4.2.2 && \
     cd /tmp && wget https://developer.download.nvidia.com/compute/redist/nvidia-dali/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
     tar xf ffmpeg-$FFMPEG_VERSION.tar.bz2 && \
     rm ffmpeg-$FFMPEG_VERSION.tar.bz2 && \
@@ -122,31 +119,36 @@ RUN FFMPEG_VERSION=4.2.1 && \
 
 # flac
 RUN FLAC_VERSION=1.3.3 && cd /tmp                                                    && \
-    wget http://downloads.xiph.org/releases/flac/flac-${FLAC_VERSION}.tar.xz         && \
-    tar -xf flac-$FLAC_VERSION.tar.xz                                                && \
-    rm flac-$FLAC_VERSION.tar.xz                                                     && \
+    wget https://github.com/xiph/flac/archive/${FLAC_VERSION}.tar.gz                 && \
+    tar -xf ${FLAC_VERSION}.tar.gz                                                   && \
+    rm -f  ${FLAC_VERSION}.tar.gz                                                    && \
     cd flac-$FLAC_VERSION                                                            && \
-    ./configure && make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install && \
+    ./autogen.sh                                                                     && \
+    ./configure                                                                      && \
+    make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install                && \
     cd /tmp && rm -rf flac-$FLAC_VERSION
 
 # libogg
 RUN OGG_VERSION=1.3.4 && cd /tmp                                                     && \
-    wget http://downloads.xiph.org/releases/ogg/libogg-${OGG_VERSION}.tar.gz         && \
-    tar -xf libogg-$OGG_VERSION.tar.gz                                               && \
-    rm libogg-$OGG_VERSION.tar.gz                                                    && \
-    cd libogg-$OGG_VERSION                                                           && \
-    ./configure && make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install && \
+    wget https://github.com/xiph/ogg/releases/download/v1.3.4/libogg-${OGG_VERSION}.tar.gz && \
+    tar -xf libogg-${OGG_VERSION}.tar.gz                                             && \
+    rm -f libogg-${OGG_VERSION}.tar.gz                                               && \
+    cd libogg-${OGG_VERSION}                                                         && \
+    ./configure                                                                      && \
+    make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install                && \
     cd /tmp && rm -rf libogg-$OGG_VERSION
 
 # libvorbis
 # Install after libogg
 RUN VORBIS_VERSION=1.3.6 && cd /tmp                                                   && \
-    wget http://downloads.xiph.org/releases/vorbis/libvorbis-${VORBIS_VERSION}.tar.xz && \
-    tar -xf libvorbis-$VORBIS_VERSION.tar.xz                                          && \
-    rm libvorbis-$VORBIS_VERSION.tar.xz                                               && \
-    cd libvorbis-$VORBIS_VERSION                                                      && \
-    ./configure && make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install  && \
-    cd /tmp && rm -rf libvorbis-$VORBIS_VERSION
+    wget https://github.com/xiph/vorbis/archive/v${VORBIS_VERSION}.tar.gz             && \
+    tar -xf v${VORBIS_VERSION}.tar.gz                                                 && \
+    rm -f  v${VORBIS_VERSION}.tar.gz                                                  && \
+    cd vorbis-$VORBIS_VERSION                                                         && \
+    ./autogen.sh                                                                      && \
+    ./configure                                                                       && \
+    make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install                 && \
+    cd /tmp && rm -rf vorbis-$VORBIS_VERSION
 
 # libsnd
 RUN LIBSND_VERSION=1.0.28 && cd /tmp                                                                           && \
@@ -155,7 +157,7 @@ RUN LIBSND_VERSION=1.0.28 && cd /tmp                                            
     rm libsndfile-$LIBSND_VERSION.tar.gz                                                                       && \
     cd libsndfile-$LIBSND_VERSION                                                                              && \
     ./configure && make -j"$(grep ^processor /proc/cpuinfo | wc -l)" && make install                           && \
-    cd /tmp && rm -rf libsnd-$LIBSND_VERSION
+    cd /tmp && rm -rf libsndfile-$LIBSND_VERSION
 
 # CUDA
 COPY --from=cuda /usr/local/cuda /usr/local/cuda

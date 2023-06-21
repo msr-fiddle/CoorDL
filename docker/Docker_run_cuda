@@ -8,25 +8,44 @@ ENV PYVER=${PYVER}
 ARG PYV=27
 ENV PYV=${PYV}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository ppa:deadsnakes/ppa
+# RUN add-apt-repository ppa:fkrull/deadsnakes
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
         curl \
-        git \
-        python$PYVER \
-        python$PYVER-dev && \
+	wget \
+	openssl \
+	libssl-dev \
+	zlib1g-dev \
+        git && \
     rm -rf /var/lib/apt/lists/*
+
+#        python$PYVER \
+#        python$PYVER-dev && \
+
+RUN wget https://www.python.org/ftp/python/3.6.0/Python-3.6.0.tar.xz
+RUN tar xvf Python-3.6.0.tar.xz
+RUN cd Python-3.6.0/ && ./configure && make -j8 && make install
 
 ENV PYTHONIOENCODING utf-8
 ENV LC_ALL C.UTF-8
-RUN ln -s /usr/bin/python$PYVER /usr/bin/python && \
-    ln -s /usr/bin/python$PYVER /usr/bin/python`echo $PYVER | cut -c1-1`
+RUN ln -s /usr/bin/python$PYVER /usr/bin/python 
+RUN ls /usr/bin/python*
+RUN export PATH=$PATH:/usr/bin
+RUN /usr/bin/python3 --version
+RUN python3 --version
+#RUN which python
+# RUN ln -s /usr/bin/python$PYVER /usr/bin/python`echo $PYVER | cut -c1-1`
 
 # If installing multiple pips, install pip2 last so that pip == pip2 when done.
-RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
-    python get-pip.py && \
+RUN curl -O https://bootstrap.pypa.io/pip/3.6/get-pip.py && \
+    python3 get-pip.py && \
     rm get-pip.py
 
 COPY --from=builder /wheelhouse/nvidia_dali-*${PYV}-* /opt/dali/
-COPY --from=builder /wheelhouse/nvidia-dali-tf-plugin-*.tar.gz /opt/dali/
+# COPY --from=builder /wheelhouse/nvidia-dali-tf-plugin-*.tar.gz /opt/dali/
 
 RUN pip install /opt/dali/*.whl
 RUN pip show tensorflow-gpu && pip install /opt/dali/*.tar.gz || true
